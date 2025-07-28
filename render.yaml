@@ -1,0 +1,11 @@
+# File: render.yaml
+services:
+  - type: web
+    name: teendom-africa
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
