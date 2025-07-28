@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+/* Teen-friendly custom styles matching the playful design inspirations */
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  color: #374151;
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 50%, #fef3c7 100%);
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Typography - Playful and modern */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #1f2937;
+}
+
+/* Custom CSS Variables for Teen Colors */
+:root {
+  --teen-yellow: #FFC107;
+  --teen-blue: #2196F3;
+  --teen-pink: #E91E63;
+  --teen-orange: #FF9800;
+  --teen-purple: #9C27B0;
+  --teen-green: #4CAF50;
+  --teen-red: #F44336;
+  --teen-teal: #009688;
+}
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(45deg, var(--teen-pink), var(--teen-blue), var(--teen-orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+}
+
+/* Blob shapes for playful design */
+.blob-shape {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+}
+
+/* Custom animations */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px);
+  }
+  50% { 
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% { 
+    transform: rotate(-3deg);
+  }
+  50% { 
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Animation classes */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-wiggle {
+  animation: wiggle 1s ease-in-out infinite;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.5s ease-out;
+}
+
+/* Button styles - Playful and modern */
+.btn-primary {
+  background: linear-gradient(135deg, var(--teen-blue), var(--teen-purple));
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 1.125rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  transform: scale(1.05);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.btn-secondary {
+  border: 2px solid var(--teen-pink);
+  color: var(--teen-pink);
+  background: transparent;
+  padding: 1rem 2rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 1.125rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.btn-secondary:hover {
+  background: var(--teen-pink);
+  color: white;
+  transform: scale(1.05);
+}
+
+/* Card styles */
+.card {
+  background: white;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Navigation styles */
+nav {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Scroll effects */
+.parallax-scroll {
+  transform: translateY(var(--scroll-y));
+}
+
+/* Teen color utilities */
+.bg-teen-yellow { background-color: var(--teen-yellow); }
+.bg-teen-blue { background-color: var(--teen-blue); }
+.bg-teen-pink { background-color: var(--teen-pink); }
+.bg-teen-orange { background-color: var(--teen-orange); }
+.bg-teen-purple { background-color: var(--teen-purple); }
+.bg-teen-green { background-color: var(--teen-green); }
+
+.text-teen-yellow { color: var(--teen-yellow); }
+.text-teen-blue { color: var(--teen-blue); }
+.text-teen-pink { color: var(--teen-pink); }
+.text-teen-orange { color: var(--teen-orange); }
+.text-teen-purple { color: var(--teen-purple); }
+.text-teen-green { color: var(--teen-green); }
+
+.border-teen-yellow { border-color: var(--teen-yellow); }
+.border-teen-blue { border-color: var(--teen-blue); }
+.border-teen-pink { border-color: var(--teen-pink); }
+.border-teen-orange { border-color: var(--teen-orange); }
+.border-teen-purple { border-color: var(--teen-purple); }
+.border-teen-green { border-color: var(--teen-green); }
+
+/* Custom focus styles */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: var(--teen-blue);
+  border-color: var(--teen-blue);
+}
+
+/* Smooth transitions for all interactive elements */
+a, button, input, textarea {
+  transition: all 0.3s ease;
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Loading spinner */
+.spinner {
+  border: 4px solid rgba(33, 150, 243, 0.1);
+  border-top: 4px solid var(--teen-blue);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Custom selection colors */
+::selection {
+  background-color: var(--teen-pink);
+  color: white;
+}
+
+::-moz-selection {
+  background-color: var(--teen-pink);
+  color: white;
+}
