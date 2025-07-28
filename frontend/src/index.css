@@ -1,8 +1,10 @@
+/* File: frontend/src/index.css */
+
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
-/* 🎨 TEENDOM AFRICA - COLORFUL & PLAYFUL STYLES 🎨 */
+/* 🎨 TEENDOM AFRICA - SOPHISTICATED & PLAYFUL STYLES 🎨 */
 
 /* Reset and base styles */
 * {
@@ -18,114 +20,69 @@ html {
 body {
   font-family: 'Nunito', system-ui, -apple-system, sans-serif;
   line-height: 1.6;
-  color: #374151;
+  color: #1f2937;
   background: linear-gradient(135deg, #E3F2FD 0%, #FFFFFF 50%, #FFF8E1 100%);
   margin: 0;
   min-height: 100vh;
 }
 
-/* Typography - Super playful and fun! */
+/* Typography - Back to original playful fonts */
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Fredoka', 'Comfortaa', system-ui, sans-serif;
   font-weight: 600;
   line-height: 1.2;
-  color: #1f2937;
+  color: #111827;
 }
 
-/* Special display text */
-.display-text {
-  font-family: 'Fredoka', system-ui, sans-serif;
-  font-weight: 700;
-}
-
-.fun-text {
-  font-family: 'Bubblegum Sans', 'Fredoka', system-ui, sans-serif;
-}
-
-/* 🌈 COLORFUL TEXT UTILITIES 🌈 */
-.text-teen-rainbow {
-  background: linear-gradient(45deg, #F06292, #42A5F5, #FFD54F, #66BB6A, #AB47BC);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: rainbow 3s ease-in-out infinite;
-}
-
-/* 🎯 BUTTON STYLES - Super Fun! 🎯 */
+/* 🌟 REFINED BUTTON STYLES 🌟 */
 .btn-primary {
-  @apply bg-teen-blue text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
+  @apply bg-primary-yellow text-gray-800 px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
   font-family: 'Fredoka', system-ui, sans-serif;
 }
 
 .btn-secondary {
-  @apply border-2 border-teen-pink text-teen-pink bg-transparent px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 hover:bg-teen-pink hover:text-white transform hover:scale-105;
+  @apply border-2 border-secondary-blue text-secondary-blue bg-transparent px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 hover:bg-secondary-blue hover:text-white transform hover:scale-105;
   font-family: 'Fredoka', system-ui, sans-serif;
 }
 
-.btn-fun {
-  @apply bg-teen-yellow text-gray-800 px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-110 hover:shadow-2xl;
-  font-family: 'Bubblegum Sans', system-ui, sans-serif;
-}
-
-.btn-orange {
-  @apply bg-teen-orange text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
+.btn-accent {
+  @apply bg-accent-red text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
 }
 
 .btn-purple {
-  @apply bg-teen-purple text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
+  @apply bg-support-purple text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
 }
 
-.btn-green {
-  @apply bg-teen-green text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
+.btn-pink {
+  @apply bg-neutral-pink text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
 }
 
-/* 🎪 CARD STYLES - Playful & Colorful 🎪 */
+/* 🎪 REFINED CARD STYLES 🎪 */
 .card {
   @apply bg-white rounded-3xl p-8 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2;
 }
 
 .card-yellow {
-  @apply bg-teen-yellow/10 border-2 border-teen-yellow/30 rounded-3xl p-8 transition-all duration-300 hover:scale-105;
+  @apply bg-primary-yellow/10 border-2 border-primary-yellow/30 rounded-3xl p-6 transition-all duration-300 hover:scale-105;
 }
 
 .card-blue {
-  @apply bg-teen-blue/10 border-2 border-teen-blue/30 rounded-3xl p-8 transition-all duration-300 hover:scale-105;
+  @apply bg-secondary-blue/10 border-2 border-secondary-blue/30 rounded-3xl p-6 transition-all duration-300 hover:scale-105;
+}
+
+.card-red {
+  @apply bg-accent-red/10 border-2 border-accent-red/30 rounded-3xl p-6 transition-all duration-300 hover:scale-105;
 }
 
 .card-pink {
-  @apply bg-teen-pink/10 border-2 border-teen-pink/30 rounded-3xl p-8 transition-all duration-300 hover:scale-105;
-}
-
-.card-orange {
-  @apply bg-teen-orange/10 border-2 border-teen-orange/30 rounded-3xl p-8 transition-all duration-300 hover:scale-105;
+  @apply bg-neutral-pink/10 border-2 border-neutral-pink/30 rounded-3xl p-6 transition-all duration-300 hover:scale-105;
 }
 
 .card-purple {
-  @apply bg-teen-purple/10 border-2 border-teen-purple/30 rounded-3xl p-8 transition-all duration-300 hover:scale-105;
+  @apply bg-support-purple/10 border-2 border-support-purple/30 rounded-3xl p-6 transition-all duration-300 hover:scale-105;
 }
 
-.card-green {
-  @apply bg-teen-green/10 border-2 border-teen-green/30 rounded-3xl p-8 transition-all duration-300 hover:scale-105;
-}
-
-/* 🎨 COLORFUL BACKGROUNDS 🎨 */
-.bg-rainbow {
-  background: linear-gradient(135deg, #F06292 0%, #42A5F5 25%, #FFD54F 50%, #66BB6A 75%, #AB47BC 100%);
-}
-
-.bg-sunset {
-  background: linear-gradient(135deg, #FFD54F 0%, #FF7043 50%, #F06292 100%);
-}
-
-.bg-ocean {
-  background: linear-gradient(135deg, #29B6F6 0%, #26C6DA 50%, #66BB6A 100%);
-}
-
-.bg-candy {
-  background: linear-gradient(135deg, #F06292 0%, #AB47BC 50%, #7E57C2 100%);
-}
-
-/* 🌟 SPECIAL EFFECTS 🌟 */
+/* 🌟 SPECIAL EFFECTS - More Refined 🌟 */
 .floating-element {
   animation: float 4s ease-in-out infinite;
 }
@@ -138,28 +95,12 @@ h1, h2, h3, h4, h5, h6 {
   animation: bounce 2s infinite;
 }
 
-/* 🎪 DECORATIVE ELEMENTS 🎪 */
-.blob-yellow {
-  @apply bg-teen-yellow/20 rounded-blob w-32 h-32 absolute;
-  animation: float 6s ease-in-out infinite;
-}
-
-.blob-blue {
-  @apply bg-teen-blue/20 rounded-blob w-24 h-24 absolute;
-  animation: float 4s ease-in-out infinite reverse;
-}
-
-.blob-pink {
-  @apply bg-teen-pink/20 rounded-blob w-20 h-20 absolute;
-  animation: wiggle 3s ease-in-out infinite;
-}
-
 /* 📱 RESPONSIVE NAVIGATION 📱 */
 .nav-glass {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 193, 7, 0.2);
 }
 
 /* 🎯 FOCUS STYLES 🎯 */
@@ -167,31 +108,12 @@ input:focus,
 textarea:focus, 
 select:focus {
   outline: none;
-  @apply ring-4 ring-teen-blue/50 border-teen-blue;
-}
-
-/* 🎊 EMOJI DECORATIONS 🎊 */
-.emoji-large {
-  font-size: 4rem;
-  line-height: 1;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
-}
-
-.emoji-medium {
-  font-size: 2.5rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-}
-
-.emoji-small {
-  font-size: 1.5rem;
-  line-height: 1;
+  @apply ring-4 ring-primary-yellow/50 border-primary-yellow;
 }
 
 /* 🌈 HOVER EFFECTS 🌈 */
-.hover-rainbow:hover {
-  background: linear-gradient(45deg, #F06292, #42A5F5, #FFD54F, #66BB6A, #AB47BC);
-  color: white;
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
   transform: scale(1.05);
 }
 
@@ -205,19 +127,16 @@ select:focus {
 
 /* 📚 SECTION BACKGROUNDS 📚 */
 .section-dots {
-  background-image: radial-gradient(circle, #42A5F5 1px, transparent 1px);
+  background-image: radial-gradient(circle, #FFC107 1px, transparent 1px);
   background-size: 20px 20px;
   background-position: 0 0, 10px 10px;
-}
-
-.section-waves {
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2342A5F5' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.1;
 }
 
 /* 🎉 LOADING ANIMATIONS 🎉 */
 .loader {
-  border: 4px solid #F06292;
-  border-top: 4px solid #42A5F5;
+  border: 4px solid #E91E63;
+  border-top: 4px solid #FFC107;
   border-radius: 50%;
   width: 60px;
   height: 60px;
@@ -231,13 +150,13 @@ select:focus {
 
 /* 🌟 SELECTION COLORS 🌟 */
 ::selection {
-  background-color: #F06292;
-  color: white;
+  background-color: #FFC107;
+  color: #212121;
 }
 
 ::-moz-selection {
-  background-color: #F06292;
-  color: white;
+  background-color: #FFC107;
+  color: #212121;
 }
 
 /* 🎨 CUSTOM SCROLLBAR 🎨 */
@@ -251,36 +170,41 @@ select:focus {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(45deg, #F06292, #42A5F5);
+  background: linear-gradient(45deg, #FFC107, #2196F3);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(45deg, #42A5F5, #F06292);
+  background: linear-gradient(45deg, #FF8F00, #1976D2);
 }
 
 /* 🌈 UTILITY CLASSES 🌈 */
 .shadow-colorful {
-  box-shadow: 0 10px 25px -3px rgba(240, 98, 146, 0.3), 0 4px 6px -2px rgba(66, 165, 245, 0.2);
-}
-
-.border-colorful {
-  @apply border-2;
-  border-image: linear-gradient(45deg, #F06292, #42A5F5, #FFD54F) 1;
+  box-shadow: 0 10px 25px -3px rgba(255, 193, 7, 0.3), 0 4px 6px -2px rgba(33, 150, 243, 0.2);
 }
 
 .text-shadow {
   text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
 }
 
+/* Yellow-focused gradients with better contrast */
+.bg-yellow-gradient {
+  background: linear-gradient(135deg, #FFC107 0%, #FFD54F 50%, #FFEB3B 100%);
+}
+
+.bg-hero-gradient {
+  background: linear-gradient(135deg, #E3F2FD 0%, #FFFFFF 50%, #FFF8E1 100%);
+}
+
+/* Stronger text shadows for visibility */
+.text-shadow-strong {
+  text-shadow: 3px 3px 6px rgba(0,0,0,0.4);
+}
+
 /* 🎪 RESPONSIVE HELPERS 🎪 */
 @media (max-width: 768px) {
   .display-text {
     font-size: 2.5rem;
-  }
-  
-  .emoji-large {
-    font-size: 3rem;
   }
   
   .card {
