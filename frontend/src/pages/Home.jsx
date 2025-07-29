@@ -125,24 +125,30 @@ const Home = () => {
         </div>
       </section>
 
-      {/* What We Do Section - Simplified */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* What We Do Section - Original Design with Current Colors */}
+      <section className="py-20 bg-white relative overflow-hidden">
+        
+        {/* Background decorations */}
+        <div className="absolute top-10 left-10 w-40 h-40 bg-yellow-400/20 rounded-full"></div>
+        <div className="absolute bottom-10 right-10 w-60 h-60 bg-red-500/20 rounded-blob"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           
           {/* Section Header with More Color */}
           <div className="text-center mb-16 space-y-6">
-            <div className="inline-flex items-center space-x-2 bg-red-600 text-white px-6 py-3 rounded-full font-display font-bold shadow-lg border-2 border-yellow-400">
-              <span>What We Do</span>
+            <div className="inline-flex items-center space-x-2 bg-red-600 text-white px-8 py-4 rounded-full font-display font-bold shadow-xl animate-bounce border-2 border-yellow-400">
+              <span className="text-lg font-black">What We Do</span>
             </div>
             
-            <h2 className="text-3xl lg:text-5xl font-display font-black text-gray-900">
-              <span className="text-yellow-600">Constitutional</span> Education for 
-              <span className="text-red-600"> Youth</span>
+            <h2 className="text-4xl lg:text-6xl font-display font-black space-y-2">
+              <div className="text-yellow-600">CONSTITUTIONAL</div>
+              <div className="text-red-600 text-shadow-strong">EDUCATION</div>
+              <div className="text-gray-900">FOR YOUTH</div>
             </h2>
             
-            <p className="text-lg text-gray-700 font-heading max-w-3xl mx-auto leading-relaxed">
-              We bridge the gap between <span className="text-red-600 font-bold">young people</span> and constitutional knowledge through 
-              <span className="text-yellow-600 font-bold"> innovative programs</span> that make learning <span className="text-red-600 font-bold">engaging and relevant.</span>
+            <p className="text-xl text-gray-800 font-heading max-w-3xl mx-auto leading-relaxed font-bold">
+              We bridge the gap between <span className="text-red-600 font-black">young people</span> and constitutional knowledge through 
+              <span className="text-yellow-600 font-black bg-yellow-100 px-3 py-1 rounded-lg mx-2"> innovative programs</span> that make learning <span className="text-red-600 font-black">engaging and relevant.</span>
             </p>
           </div>
 
@@ -240,39 +246,43 @@ const Home = () => {
             </div>
           </div>
 
-          {/* The Problem We're Solving - Simplified */}
-          <div className="bg-white rounded-3xl p-8 lg:p-12 shadow-lg">
-            <div className="text-center space-y-6">
-              <h3 className="text-3xl font-display font-black text-gray-900">
-                The Challenge We're Addressing
+          {/* The Problem We're Solving - Original Design with Current Colors */}
+          <div className="bg-yellow-100 rounded-3xl p-12 border-8 border-yellow-400/30 shadow-2xl">
+            <div className="text-center space-y-8">
+              <h3 className="text-4xl font-display font-black">
+                <span className="text-red-600">The Challenge</span> 
+                <span className="text-gray-900"> We're Addressing</span> 
               </h3>
               
-              <div className="grid lg:grid-cols-2 gap-8 items-center">
+              <div className="grid md:grid-cols-2 gap-8 items-center">
                 <div className="space-y-6 text-left">
-                  <div className="bg-red-50 rounded-2xl p-6 border-l-4 border-red-500">
-                    <h4 className="text-lg font-display font-black text-gray-900 mb-3">The Numbers</h4>
-                    <p className="text-gray-700 font-heading">
-                      Over <span className="font-black text-red-600">11.6 million young people</span> aged 10-19 in Kenya 
-                      have limited access to legal and constitutional education.
+                  <div className="bg-red-100 rounded-2xl p-6 border-l-8 border-red-500 shadow-lg">
+                    <h4 className="text-xl font-display font-black text-gray-900 mb-3">The Numbers</h4>
+                    <p className="text-gray-800 font-heading font-bold">
+                      Over <span className="font-black text-red-600 bg-red-200 px-2 py-1 rounded">11.6 million young people</span> aged 10-19 in Kenya 
+                      have limited access to legal and constitutional education, making them vulnerable to exploitation 
+                      and limiting their civic participation.
                     </p>
                   </div>
                   
-                  <div className="bg-green-50 rounded-2xl p-6 border-l-4 border-green-500">
-                    <h4 className="text-lg font-display font-black text-gray-900 mb-3">Our Solution</h4>
-                    <p className="text-gray-700 font-heading">
+                  <div className="bg-yellow-200 rounded-2xl p-6 border-l-8 border-yellow-500 shadow-lg">
+                    <h4 className="text-xl font-display font-black text-gray-900 mb-3">Our Solution</h4>
+                    <p className="text-gray-800 font-heading font-bold">
                       We provide accessible, engaging constitutional education that empowers young people 
-                      to understand their rights and responsibilities.
+                      to understand their rights, responsibilities, and the power of active citizenship.
                     </p>
                   </div>
                 </div>
                 
-                <div className="text-center">
-                  <div className="text-6xl mb-4">📚</div>
-                  <div className="space-y-2">
-                    <div className="text-3xl font-display font-black text-blue-600">Knowledge</div>
-                    <div className="text-lg text-gray-600 font-heading">is Power</div>
-                    <div className="text-2xl font-display font-black text-yellow-500">Empowerment</div>
-                    <div className="text-base text-gray-600 font-heading">is Progress</div>
+                <div className="relative">
+                  <div className="text-center space-y-6">
+                    <div className="text-9xl animate-float">📚</div>
+                    <div className="space-y-3">
+                      <div className="text-5xl font-display font-black text-red-600">Knowledge</div>
+                      <div className="text-2xl text-gray-800 font-heading font-bold">is Power</div>
+                      <div className="text-4xl font-display font-black text-yellow-600">Empowerment</div>
+                      <div className="text-xl text-gray-800 font-heading font-bold">is Progress</div>
+                    </div>
                   </div>
                 </div>
               </div>
