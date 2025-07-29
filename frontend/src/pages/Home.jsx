@@ -2,38 +2,26 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Users, Award, Target, CheckCircle, Sparkles, Heart, Star } from 'lucide-react';
+import { ArrowRight, BookOpen, Users, Award, CheckCircle } from 'lucide-react';
 
 const Home = () => {
   const [animateStats, setAnimateStats] = useState(false);
-  const [currentEmoji, setCurrentEmoji] = useState(0);
-
-  const floatingEmojis = ['🎓', '📚', '🏆', '🌟', '🎯', '💫', '🚀', '✨'];
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimateStats(true), 500);
-    
-    // Rotating emoji effect
-    const emojiTimer = setInterval(() => {
-      setCurrentEmoji((prev) => (prev + 1) % floatingEmojis.length);
-    }, 2000);
-
-    return () => {
-      clearTimeout(timer);
-      clearInterval(emojiTimer);
-    };
+    return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div className="pt-20">
-      {/* Hero Section - BOLD AND VISIBLE! */}
-      <section className="relative overflow-hidden py-20 lg:py-32 bg-gradient-to-br from-yellow-300 via-yellow-100 to-blue-300">
+    <div className="pt-16">
+      {/* Hero Section - Closer to navbar with more colors */}
+      <section className="relative overflow-hidden py-12 lg:py-20 bg-white">
         
-        {/* BIG, BOLD Floating Decorative Elements */}
-        <div className="absolute top-20 left-10 w-32 h-32 bg-yellow-400 rounded-full animate-float shadow-2xl"></div>
-        <div className="absolute top-40 right-20 w-40 h-40 bg-blue-500 rounded-blob animate-bounce shadow-2xl"></div>
-        <div className="absolute bottom-20 left-1/4 w-28 h-28 bg-pink-500 rounded-full animate-wiggle shadow-2xl"></div>
-        <div className="absolute top-60 right-1/3 w-24 h-24 bg-red-500 rounded-blob animate-float shadow-2xl"></div>
+        {/* More Colorful Background Elements */}
+        <div className="absolute top-20 left-10 w-32 h-32 bg-yellow-400/40 rounded-full"></div>
+        <div className="absolute bottom-20 right-20 w-40 h-40 bg-red-500/30 rounded-full"></div>
+        <div className="absolute top-1/2 right-1/3 w-24 h-24 bg-yellow-500/25 rounded-full"></div>
+        <div className="absolute top-10 left-1/3 w-28 h-28 bg-red-400/20 rounded-full"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -41,123 +29,95 @@ const Home = () => {
             {/* Left Content */}
             <div className="text-center lg:text-left space-y-8">
               
-              {/* Animated Badge - BOLD */}
-              <div className="inline-flex items-center space-x-3 bg-yellow-400 text-black px-8 py-4 rounded-full font-display font-bold animate-bounce shadow-2xl border-4 border-yellow-600">
-                <span className="text-2xl animate-pulse">🇰🇪</span>
-                <span className="text-lg font-black">Empowering Kenyan Youth</span>
-                <span className="text-2xl animate-pulse">✨</span>
+              {/* Enhanced Colorful Badge */}
+              <div className="inline-flex items-center space-x-3 bg-red-600 text-white px-6 py-3 rounded-full font-display font-bold shadow-lg border-2 border-yellow-400">
+                <span>🇰🇪</span>
+                <span>Empowering Kenyan Youth</span>
               </div>
               
-              {/* Main Heading - SUPER BOLD & DARK */}
+              {/* Main Heading - More Colorful */}
               <h1 className="space-y-2">
-                <div className="text-5xl lg:text-7xl font-display font-black leading-tight">
-                  <span className="text-blue-700 hover:text-purple-700 transition-colors duration-500 cursor-default">
-                    NURTURING
-                  </span>
+                <div className="text-4xl lg:text-6xl font-display font-black leading-tight text-gray-900">
+                  <span className="text-red-600">NURTURING</span> THE NEXT
                 </div>
                 <div className="text-4xl lg:text-6xl font-display font-black leading-tight">
-                  <span className="text-gray-900 hover:text-red-600 transition-colors duration-500 cursor-default">
-                    THE NEXT
-                  </span>
-                </div>
-                <div className="text-5xl lg:text-7xl font-display font-black leading-tight">
-                  <span className="text-orange-600 hover:text-yellow-600 transition-colors duration-500 cursor-default" style={{textShadow: '4px 4px 8px rgba(0,0,0,0.6)'}}>
-                    GENERATION
-                  </span>
+                  <span className="text-yellow-500">GENERATION</span>
                 </div>
               </h1>
               
-              {/* Description - DARK & BOLD */}
-              <p className="text-xl text-gray-900 font-heading leading-relaxed font-bold">
-                Empowering young people to develop into a community of 
-                <span className="text-white px-4 py-2 bg-blue-600 rounded-xl mx-2 shadow-lg font-black">
-                  informed and active citizens
-                </span>
-                through constitutional education and mentorship.
+              {/* Description with More Color */}
+              <p className="text-lg text-gray-700 font-heading leading-relaxed max-w-lg">
+                <span className="text-yellow-600 font-bold">Empowering young people</span> to develop into 
+                <span className="text-red-600 font-bold"> informed and active citizens</span> through 
+                constitutional education and <span className="text-yellow-600 font-bold">mentorship programs.</span>
               </p>
 
-              {/* Impact Stats - COLORFUL & BOLD */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-500 text-white rounded-3xl p-6 transform hover:scale-110 transition-all duration-300 shadow-2xl border-4 border-blue-700">
-                  <div className={`text-4xl font-display font-black transition-all duration-1000 ${animateStats ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
+              {/* Colorful Stats */}
+              <div className="grid grid-cols-3 gap-4 max-w-md">
+                <div className="text-center p-4 bg-yellow-50 rounded-2xl shadow-sm border-l-4 border-yellow-400">
+                  <div className={`text-2xl font-display font-black text-blue-600 transition-all duration-1000 ${animateStats ? 'opacity-100' : 'opacity-0'}`}>
                     2,500+
                   </div>
-                  <div className="text-sm font-heading font-bold">Young People</div>
-                  <div className="text-2xl mt-2">🎓</div>
+                  <div className="text-xs font-heading text-gray-600">Students</div>
                 </div>
-                <div className="bg-yellow-500 text-black rounded-3xl p-6 transform hover:scale-110 transition-all duration-300 shadow-2xl border-4 border-yellow-700">
-                  <div className={`text-4xl font-display font-black transition-all duration-1000 delay-200 ${animateStats ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
+                <div className="text-center p-4 bg-blue-50 rounded-2xl shadow-sm border-l-4 border-blue-400">
+                  <div className={`text-2xl font-display font-black text-blue-600 transition-all duration-1000 delay-200 ${animateStats ? 'opacity-100' : 'opacity-0'}`}>
                     1,500+
                   </div>
-                  <div className="text-sm font-heading font-bold">Constitution Guides</div>
-                  <div className="text-2xl mt-2">📚</div>
+                  <div className="text-xs font-heading text-gray-600">Guides</div>
                 </div>
-                <div className="bg-red-500 text-white rounded-3xl p-6 transform hover:scale-110 transition-all duration-300 shadow-2xl border-4 border-red-700">
-                  <div className={`text-4xl font-display font-black transition-all duration-1000 delay-400 ${animateStats ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
+                <div className="text-center p-4 bg-red-50 rounded-2xl shadow-sm border-l-4 border-red-400">
+                  <div className={`text-2xl font-display font-black text-blue-600 transition-all duration-1000 delay-400 ${animateStats ? 'opacity-100' : 'opacity-0'}`}>
                     10+
                   </div>
-                  <div className="text-sm font-heading font-bold">Schools</div>
-                  <div className="text-2xl mt-2">🏫</div>
+                  <div className="text-xs font-heading text-gray-600">Schools</div>
                 </div>
               </div>
 
-              {/* CTA Buttons - BIG & BOLD */}
+              {/* More Colorful CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   to="/ycp"
-                  className="group bg-blue-600 text-white px-10 py-5 rounded-2xl font-display font-black text-xl hover:bg-purple-600 hover:shadow-2xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center space-x-3 shadow-2xl"
+                  className="group bg-yellow-500 text-white px-8 py-4 rounded-2xl font-display font-bold text-lg hover:bg-yellow-600 transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg border-2 border-red-400 hover:border-red-500"
                 >
-                  <span className="text-2xl group-hover:animate-bounce">🚀</span>
                   <span>Start Learning</span>
-                  <ArrowRight size={24} className="group-hover:translate-x-3 transition-transform duration-300" />
+                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
                 </Link>
                 <Link
                   to="/about"
-                  className="group border-4 border-yellow-500 bg-yellow-400 text-black px-10 py-5 rounded-2xl font-display font-black text-xl hover:bg-yellow-500 hover:border-yellow-600 transition-all duration-300 flex items-center justify-center space-x-3 shadow-2xl hover:scale-110"
+                  className="group border-2 border-red-500 bg-red-500 text-white px-8 py-4 rounded-2xl font-display font-bold text-lg hover:bg-red-600 hover:border-red-600 transition-all duration-300 flex items-center justify-center space-x-3"
                 >
-                  <BookOpen size={24} className="group-hover:animate-wiggle" />
+                  <BookOpen size={20} />
                   <span>Learn More</span>
-                  <span className="text-2xl group-hover:animate-bounce">📖</span>
                 </Link>
               </div>
             </div>
 
-            {/* Right Illustration - COLORFUL & BOLD */}
+            {/* Right Side - Better Aligned Illustration */}
             <div className="relative">
-              <div className="relative w-full h-96 lg:h-[500px]">
+              <div className="relative w-full h-80 lg:h-[420px] flex items-start justify-start lg:justify-center pt-8">
                 
-                {/* Main decorative blob - BOLD */}
-                <div className="absolute inset-0 bg-yellow-400 rounded-blob animate-pulse shadow-2xl"></div>
-                <div className="absolute inset-4 bg-blue-400 rounded-blob animate-float shadow-xl"></div>
-                <div className="absolute inset-8 bg-pink-400 rounded-blob animate-wiggle shadow-lg"></div>
-                
-                {/* Floating emojis - BIGGER */}
-                <div className="absolute top-10 right-10 text-8xl animate-float">
-                  {floatingEmojis[currentEmoji]}
-                </div>
-                <div className="absolute bottom-20 left-10 text-7xl animate-bounce">👩‍🎓</div>
-                <div className="absolute top-1/2 left-1/4 text-6xl animate-wiggle">⚖️</div>
-                <div className="absolute bottom-1/3 right-1/4 text-7xl animate-float">🧑‍🎓</div>
-                
-                {/* Constitution book mockup - BOLD */}
-                <div className="absolute bottom-10 right-10 bg-white p-6 rounded-3xl shadow-2xl transform rotate-12 hover:rotate-6 transition-all duration-300 border-4 border-blue-500">
-                  <div className="w-32 h-40 bg-blue-600 rounded-2xl flex items-center justify-center relative overflow-hidden shadow-xl">
-                    <div className="text-center p-3">
-                      <div className="text-white font-display font-black text-sm leading-tight">
-                        TEENS<br/>GUIDE<br/>
-                        <span className="text-yellow-300 text-base">CONSTITUTION</span>
+                {/* Main Visual Element - Pushed Up and Better Aligned */}
+                <div className="relative ml-4 lg:ml-0">
+                  <div className="w-64 h-64 lg:w-72 lg:h-72 bg-yellow-400/40 rounded-full flex items-center justify-center">
+                    <div className="w-48 h-48 lg:w-54 lg:h-54 bg-red-500/25 rounded-full flex items-center justify-center">
+                      <div className="w-32 h-32 lg:w-36 lg:h-36 bg-white rounded-2xl shadow-2xl flex items-center justify-center border-2 border-yellow-300">
+                        <div className="text-center px-2">
+                          <div className="text-xl lg:text-2xl mb-1">📚</div>
+                          <div className="font-display font-black text-red-600 text-sm lg:text-base">Constitution</div>
+                          <div className="font-heading text-gray-600 text-xs lg:text-sm">Guide</div>
+                        </div>
                       </div>
                     </div>
-                    <div className="absolute top-3 right-3 w-4 h-4 bg-yellow-400 rounded-full animate-pulse shadow-lg"></div>
                   </div>
                 </div>
 
-                {/* Floating achievement badges - COLORFUL */}
-                <div className="absolute top-1/4 left-1/3 bg-white p-4 rounded-full shadow-2xl animate-bounce border-4 border-green-500">
-                  <Star size={32} className="text-green-500" />
+                {/* Floating Elements - Colorful */}
+                <div className="absolute top-4 right-2 lg:right-8 bg-yellow-100 p-3 lg:p-4 rounded-xl shadow-lg border-2 border-yellow-400">
+                  <span className="text-xl lg:text-2xl">⚖️</span>
                 </div>
-                <div className="absolute top-3/4 left-1/4 bg-white p-4 rounded-full shadow-2xl animate-float border-4 border-purple-500">
-                  <Heart size={32} className="text-purple-500" />
+                <div className="absolute bottom-8 left-2 lg:left-8 bg-red-100 p-3 lg:p-4 rounded-xl shadow-lg border-2 border-red-400">
+                  <span className="text-xl lg:text-2xl">🎓</span>
                 </div>
               </div>
             </div>
@@ -165,169 +125,154 @@ const Home = () => {
         </div>
       </section>
 
-      {/* What We Do Section - BOLD COLORS */}
-      <section className="py-20 bg-white relative overflow-hidden">
-        
-        {/* Bold background decorations */}
-        <div className="absolute top-10 left-10 w-40 h-40 bg-blue-200 rounded-full"></div>
-        <div className="absolute bottom-10 right-10 w-60 h-60 bg-yellow-200 rounded-blob"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      {/* What We Do Section - Simplified */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* Section Header - BOLD */}
+          {/* Section Header with More Color */}
           <div className="text-center mb-16 space-y-6">
-            <div className="inline-flex items-center space-x-3 bg-blue-500 text-white px-8 py-4 rounded-full font-display font-bold shadow-xl animate-bounce">
-              <span className="text-2xl animate-pulse">📚</span>
-              <span className="text-lg font-black">What We Do</span>
+            <div className="inline-flex items-center space-x-2 bg-red-600 text-white px-6 py-3 rounded-full font-display font-bold shadow-lg border-2 border-yellow-400">
+              <span>What We Do</span>
             </div>
             
-            <h2 className="text-4xl lg:text-6xl font-display font-black space-y-2">
-              <div className="text-blue-700">CONSTITUTIONAL</div>
-              <div className="text-yellow-600" style={{textShadow: '3px 3px 6px rgba(0,0,0,0.4)'}}>EDUCATION</div>
-              <div className="text-gray-900">FOR YOUTH</div>
+            <h2 className="text-3xl lg:text-5xl font-display font-black text-gray-900">
+              <span className="text-yellow-600">Constitutional</span> Education for 
+              <span className="text-red-600"> Youth</span>
             </h2>
             
-            <p className="text-xl text-gray-800 font-heading max-w-3xl mx-auto leading-relaxed font-bold">
-              We bridge the gap between young people and constitutional knowledge through 
-              <span className="text-red-600 font-black bg-red-100 px-3 py-1 rounded-lg mx-2"> innovative programs</span> that make learning engaging and relevant.
+            <p className="text-lg text-gray-700 font-heading max-w-3xl mx-auto leading-relaxed">
+              We bridge the gap between <span className="text-red-600 font-bold">young people</span> and constitutional knowledge through 
+              <span className="text-yellow-600 font-bold"> innovative programs</span> that make learning <span className="text-red-600 font-bold">engaging and relevant.</span>
             </p>
           </div>
 
-          {/* Program Highlights - COLORFUL CARDS */}
+          {/* Program Cards - More Visible */}
           <div className="grid md:grid-cols-3 gap-8 mb-16">
             
             {/* Young Citizens Program */}
-            <div className="bg-white rounded-3xl p-8 shadow-2xl hover:shadow-3xl transform hover:-translate-y-4 transition-all duration-500 group border-t-8 border-blue-500">
-              <div className="w-20 h-20 bg-blue-500 rounded-2xl flex items-center justify-center mb-6 group-hover:animate-wiggle shadow-xl">
-                <BookOpen size={32} className="text-white" />
+            <div className="bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100">
+              <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6">
+                <BookOpen size={24} className="text-white" />
               </div>
-              <h3 className="text-2xl font-display font-black text-gray-900 mb-4">Young Citizens Program</h3>
-              <p className="text-gray-700 mb-6 font-heading font-bold">Comprehensive constitutional education through multiple learning formats - self-paced, online, and in-person classes.</p>
+              <h3 className="text-xl font-display font-black text-gray-900 mb-4">Young Citizens Program</h3>
+              <p className="text-gray-800 mb-6 font-heading font-semibold text-base">Comprehensive constitutional education through multiple learning formats.</p>
               
-              <ul className="space-y-3 text-sm text-gray-700 mb-6 font-bold">
-                {['Interactive learning modules', 'Expert facilitators', 'Community engagement', 'Leadership development'].map((feature, index) => {
-                  const icons = ['🎯', '👨‍🏫', '🤝', '👑'];
-                  return (
-                    <li key={index} className="flex items-center space-x-3">
-                      <span className="text-lg">{icons[index]}</span>
-                      <span>{feature}</span>
-                    </li>
-                  );
-                })}
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-blue-600 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">Interactive learning modules</span>
+                </li>
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-blue-600 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">Expert facilitators</span>
+                </li>
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-blue-600 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">Community engagement</span>
+                </li>
               </ul>
               
-              <Link
-                to="/ycp"
-                className="w-full bg-blue-500 text-white py-4 rounded-2xl font-display font-black hover:bg-purple-500 hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2 shadow-xl"
-              >
-                <span>Learn More</span>
-                <ArrowRight size={18} />
-              </Link>
+              <button className="w-full bg-blue-600 text-white py-4 rounded-xl font-display font-black text-base hover:bg-blue-700 transition-colors duration-300 shadow-lg">
+                Learn More
+              </button>
             </div>
 
             {/* Teendom Awards */}
-            <div className="bg-white rounded-3xl p-8 shadow-2xl hover:shadow-3xl transform hover:-translate-y-4 transition-all duration-500 group border-t-8 border-yellow-500 relative">
+            <div className="bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 relative border border-gray-100">
               
               {/* Coming Soon badge */}
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-full font-display font-black text-sm animate-bounce shadow-xl">
-                🎉 Coming 2025
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-gray-900 px-5 py-2 rounded-full font-display font-black text-sm shadow-lg">
+                Coming 2025
               </div>
               
-              <div className="w-20 h-20 bg-yellow-500 rounded-2xl flex items-center justify-center mb-6 group-hover:animate-wiggle shadow-xl">
-                <Award size={32} className="text-white" />
+              <div className="w-16 h-16 bg-yellow-400 rounded-2xl flex items-center justify-center mb-6">
+                <Award size={24} className="text-gray-900" />
               </div>
-              <h3 className="text-2xl font-display font-black text-gray-900 mb-4">Teendom Awards</h3>
-              <p className="text-gray-700 mb-6 font-heading font-bold">National recognition platform celebrating exceptional teenagers making positive impact in their communities.</p>
+              <h3 className="text-xl font-display font-black text-gray-900 mb-4">Teendom Awards</h3>
+              <p className="text-gray-800 mb-6 font-heading font-semibold text-base">National recognition platform celebrating exceptional teenagers.</p>
               
-              <ul className="space-y-3 text-sm text-gray-700 mb-6 font-bold">
-                {['Six award categories', 'National recognition', 'Media coverage', 'Inspiring role models'].map((feature, index) => {
-                  const icons = ['🎪', '🌟', '📺', '✨'];
-                  return (
-                    <li key={index} className="flex items-center space-x-3">
-                      <span className="text-lg">{icons[index]}</span>
-                      <span>{feature}</span>
-                    </li>
-                  );
-                })}
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-yellow-500 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">Six award categories</span>
+                </li>
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-yellow-500 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">National recognition</span>
+                </li>
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-yellow-500 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">Media coverage</span>
+                </li>
               </ul>
               
-              <Link
-                to="/awards"
-                className="w-full bg-yellow-500 text-black py-4 rounded-2xl font-display font-black hover:bg-yellow-600 hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2 shadow-xl"
-              >
-                <span>Discover Awards</span>
-                <Star size={18} />
-              </Link>
+              <button className="w-full bg-yellow-400 text-gray-900 py-4 rounded-xl font-display font-black text-base hover:bg-yellow-500 transition-colors duration-300 shadow-lg">
+                Discover Awards
+              </button>
             </div>
 
-            {/* Community Impact */}
-            <div className="bg-white rounded-3xl p-8 shadow-2xl hover:shadow-3xl transform hover:-translate-y-4 transition-all duration-500 group border-t-8 border-pink-500">
-              <div className="w-20 h-20 bg-pink-500 rounded-2xl flex items-center justify-center mb-6 group-hover:animate-wiggle shadow-xl">
-                <Users size={32} className="text-white" />
+            {/* Community Impact - Warm Color */}
+            <div className="bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100">
+              <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mb-6">
+                <Users size={24} className="text-white" />
               </div>
-              <h3 className="text-2xl font-display font-black text-gray-900 mb-4">Community Impact</h3>
-              <p className="text-gray-700 mb-6 font-heading font-bold">Building networks of informed young citizens who actively participate in community development and civic engagement.</p>
+              <h3 className="text-xl font-display font-black text-gray-900 mb-4">Community Impact</h3>
+              <p className="text-gray-800 mb-6 font-heading font-semibold text-base">Building networks of informed young citizens who actively participate.</p>
               
-              <ul className="space-y-3 text-sm text-gray-700 mb-6 font-bold">
-                {['School partnerships', 'Community workshops', 'Youth networks', 'Civic engagement'].map((feature, index) => {
-                  const icons = ['🏫', '🎪', '👥', '🗳️'];
-                  return (
-                    <li key={index} className="flex items-center space-x-3">
-                      <span className="text-lg">{icons[index]}</span>
-                      <span>{feature}</span>
-                    </li>
-                  );
-                })}
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-orange-500 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">School partnerships</span>
+                </li>
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-orange-500 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">Community workshops</span>
+                </li>
+                <li className="flex items-center space-x-3 text-gray-700">
+                  <CheckCircle size={18} className="text-orange-500 flex-shrink-0" />
+                  <span className="font-heading font-bold text-sm">Youth networks</span>
+                </li>
               </ul>
               
-              <Link
-                to="/about"
-                className="w-full bg-pink-500 text-white py-4 rounded-2xl font-display font-black hover:bg-pink-600 hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2 shadow-xl"
-              >
-                <span>Our Impact</span>
-                <Heart size={18} />
-              </Link>
+              <button className="w-full bg-orange-500 text-white py-4 rounded-xl font-display font-black text-base hover:bg-orange-600 transition-colors duration-300 shadow-lg">
+                Our Impact
+              </button>
             </div>
           </div>
 
-          {/* The Problem We're Solving - BOLD */}
-          <div className="bg-gradient-to-br from-gray-100 to-blue-100 rounded-3xl p-12 border-8 border-blue-300 shadow-2xl">
-            <div className="text-center space-y-8">
-              <h3 className="text-4xl font-display font-black">
-                <span className="text-red-600">The Challenge</span> 
-                <span className="text-gray-900"> We're Addressing</span> 
-                <span className="text-3xl ml-2">🎯</span>
+          {/* The Problem We're Solving - Simplified */}
+          <div className="bg-white rounded-3xl p-8 lg:p-12 shadow-lg">
+            <div className="text-center space-y-6">
+              <h3 className="text-3xl font-display font-black text-gray-900">
+                The Challenge We're Addressing
               </h3>
               
-              <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
                 <div className="space-y-6 text-left">
-                  <div className="bg-red-100 rounded-2xl p-6 border-l-8 border-red-500 shadow-lg">
-                    <h4 className="text-xl font-display font-black text-gray-900 mb-3">📊 The Numbers</h4>
-                    <p className="text-gray-800 font-heading font-bold">
-                      Over <span className="font-black text-red-600 bg-red-200 px-2 py-1 rounded">11.6 million young people</span> aged 10-19 in Kenya 
-                      have limited access to legal and constitutional education, making them vulnerable to exploitation 
-                      and limiting their civic participation.
+                  <div className="bg-red-50 rounded-2xl p-6 border-l-4 border-red-500">
+                    <h4 className="text-lg font-display font-black text-gray-900 mb-3">The Numbers</h4>
+                    <p className="text-gray-700 font-heading">
+                      Over <span className="font-black text-red-600">11.6 million young people</span> aged 10-19 in Kenya 
+                      have limited access to legal and constitutional education.
                     </p>
                   </div>
                   
-                  <div className="bg-yellow-100 rounded-2xl p-6 border-l-8 border-yellow-500 shadow-lg">
-                    <h4 className="text-xl font-display font-black text-gray-900 mb-3">💡 Our Solution</h4>
-                    <p className="text-gray-800 font-heading font-bold">
+                  <div className="bg-green-50 rounded-2xl p-6 border-l-4 border-green-500">
+                    <h4 className="text-lg font-display font-black text-gray-900 mb-3">Our Solution</h4>
+                    <p className="text-gray-700 font-heading">
                       We provide accessible, engaging constitutional education that empowers young people 
-                      to understand their rights, responsibilities, and the power of active citizenship.
+                      to understand their rights and responsibilities.
                     </p>
                   </div>
                 </div>
                 
-                <div className="relative">
-                  <div className="text-center space-y-6">
-                    <div className="text-9xl animate-float">📚</div>
-                    <div className="space-y-3">
-                      <div className="text-5xl font-display font-black text-blue-700">Knowledge</div>
-                      <div className="text-2xl text-gray-800 font-heading font-bold">is Power</div>
-                      <div className="text-4xl font-display font-black text-yellow-600">Empowerment</div>
-                      <div className="text-xl text-gray-800 font-heading font-bold">is Progress</div>
-                    </div>
+                <div className="text-center">
+                  <div className="text-6xl mb-4">📚</div>
+                  <div className="space-y-2">
+                    <div className="text-3xl font-display font-black text-blue-600">Knowledge</div>
+                    <div className="text-lg text-gray-600 font-heading">is Power</div>
+                    <div className="text-2xl font-display font-black text-yellow-500">Empowerment</div>
+                    <div className="text-base text-gray-600 font-heading">is Progress</div>
                   </div>
                 </div>
               </div>
@@ -336,58 +281,40 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Call to Action - BRIGHT YELLOW */}
-      <section className="py-20 bg-yellow-400 relative overflow-hidden">
+      {/* Call to Action - Colorful */}
+      <section className="py-20 bg-blue-600 relative overflow-hidden">
         
-        {/* Bold background elements */}
-        <div className="absolute top-0 left-0 w-40 h-40 bg-blue-500 rounded-full animate-pulse shadow-2xl"></div>
-        <div className="absolute bottom-0 right-0 w-60 h-60 bg-pink-500 rounded-blob animate-float shadow-2xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/20 rounded-full animate-pulse"></div>
+        {/* Background Accents */}
+        <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-400/20 rounded-full"></div>
+        <div className="absolute bottom-10 right-10 w-40 h-40 bg-red-500/20 rounded-full"></div>
         
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="space-y-8">
             
-            {/* Heading - BOLD BLACK TEXT */}
-            <h2 className="text-5xl lg:text-6xl font-display font-black text-black leading-tight">
-              Ready to Shape Kenya's Future?
-              <div className="flex justify-center space-x-3 mt-6">
-                <span className="text-4xl animate-bounce">🚀</span>
-                <span className="text-4xl animate-bounce" style={{animationDelay: '0.1s'}}>🇰🇪</span>
-                <span className="text-4xl animate-bounce" style={{animationDelay: '0.2s'}}>✨</span>
-              </div>
+            <h2 className="text-4xl lg:text-5xl font-display font-black text-white leading-tight">
+              Ready to Shape 
+              <span className="text-yellow-400"> Kenya's Future?</span>
             </h2>
             
-            {/* Description - BOLD */}
-            <p className="text-2xl text-gray-900 font-heading leading-relaxed font-bold">
+            <p className="text-xl text-blue-100 font-heading leading-relaxed max-w-3xl mx-auto">
               Join the movement of young Kenyans who are learning about their rights, responsibilities, 
-              and the power of active citizenship. <span className="font-black bg-black text-yellow-400 px-3 py-1 rounded-lg">Your voice matters.</span>
+              and the <span className="text-yellow-300 font-bold">power of active citizenship.</span>
             </p>
             
-            {/* CTA Buttons - BIG & BOLD */}
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/ycp"
-                className="group bg-blue-600 text-white px-12 py-6 rounded-2xl font-display font-black text-xl hover:bg-purple-600 hover:shadow-2xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center space-x-4 shadow-2xl"
+                className="bg-yellow-400 text-gray-900 px-8 py-4 rounded-2xl font-display font-black text-lg hover:bg-yellow-500 transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg border-2 border-transparent hover:border-white"
               >
-                <span className="text-3xl group-hover:animate-bounce">📚</span>
                 <span>Explore Programs</span>
-                <ArrowRight size={28} className="group-hover:translate-x-3 transition-transform duration-300" />
+                <ArrowRight size={20} />
               </Link>
               <Link
                 to="/awards"
-                className="group border-4 border-black bg-black text-yellow-400 px-12 py-6 rounded-2xl font-display font-black text-xl hover:bg-gray-800 hover:scale-110 transition-all duration-300 flex items-center justify-center space-x-4 shadow-2xl"
+                className="border-2 border-red-400 bg-red-500 text-white px-8 py-4 rounded-2xl font-display font-black text-lg hover:bg-red-600 hover:border-red-500 transition-all duration-300"
               >
-                <span className="text-3xl group-hover:animate-bounce">🏆</span>
-                <span>Nominate a Teen</span>
+                Nominate a Teen
               </Link>
-            </div>
-            
-            {/* Fun decorative elements - BIGGER */}
-            <div className="flex justify-center space-x-8 mt-8">
-              <div className="text-5xl animate-float">📚</div>
-              <div className="text-5xl animate-bounce">🎓</div>
-              <div className="text-5xl animate-wiggle">⚖️</div>
-              <div className="text-5xl animate-float">🏆</div>
             </div>
           </div>
         </div>
