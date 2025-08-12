@@ -1,31 +1,38 @@
-// File: frontend/src/App.jsx
-
-import React from 'react'
-import { Routes, Route } from 'react-router-dom'
-import Navbar from './components/layout/Navbar'
-import Footer from './components/layout/Footer'
-import Home from './pages/Home'
-import YCP from './pages/YCP'
-import Awards from './pages/Awards'
-import About from './pages/About'
-import Contact from './pages/Contact'
+// File: src/App.jsx
+import React, { useState } from 'react';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import HomePage from './pages/HomePage';
+import ArticlePage from './pages/ArticlePage';
+import YCPPage from './pages/YCPPage';
+import AwardsPage from './pages/AwardsPage';
 
 function App() {
+  const [currentPage, setCurrentPage] = useState('home');
+  const [currentArticle, setCurrentArticle] = useState(null);
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'home':
+        return <HomePage setCurrentPage={setCurrentPage} setCurrentArticle={setCurrentArticle} />;
+      case 'article':
+        return <ArticlePage article={currentArticle} setCurrentPage={setCurrentPage} setCurrentArticle={setCurrentArticle} />;
+      case 'ycp':
+        return <YCPPage />;
+      case 'awards':
+        return <AwardsPage />;
+      default:
+        return <HomePage setCurrentPage={setCurrentPage} setCurrentArticle={setCurrentArticle} />;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/ycp" element={<YCP />} />
-          <Route path="/awards" element={<Awards />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-        </Routes>
-      </main>
+    <div className="min-h-screen bg-black text-white">
+      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      {renderPage()}
       <Footer />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
