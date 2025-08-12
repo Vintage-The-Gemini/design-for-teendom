@@ -2,92 +2,159 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Heart, Bookmark, Share2, Eye, Clock } from 'lucide-react';
 
-// Sample articles data
+// REAL ARTICLES DATA - Using your actual content
 const ARTICLES = [
   {
     id: 1,
-    title: 'ACNE AND MALE SELF ESTEEM',
-    category: { name: 'Self-Care', color: 'bg-blue-600' },
+    title: 'ACNE IN TEENAGE BOYS',
+    category: 'SELF-CARE',
     date: 'Jun 29, 2025',
     author: 'Catherine Kinyanjui',
     excerpt: 'Understanding how acne affects teenage boys and building confidence through proper skincare and self-acceptance.',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop',
+    image: '/src/assets/images/acne/acne1.jpg',
     featured: true,
     views: 2500,
-    readTime: 5
+    readTime: 5,
+    folder: 'acne'
   },
   {
     id: 2,
     title: 'THE BOYLAN SISTERS: Constitutional Champions',
-    category: { name: 'Leadership', color: 'bg-red-600' },
+    category: 'LEADERSHIP',
     date: 'Jun 25, 2025',
     author: 'Teendom Team',
     excerpt: 'Meet the inspiring Boylan sisters who are revolutionizing youth advocacy and constitutional education across Kenya.',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&h=600&fit=crop',
+    image: '/src/assets/images/babylon/babylon-sisters-cover.jpg',
     featured: true,
     views: 3200,
-    readTime: 7
+    readTime: 7,
+    folder: 'babylon'
   },
   {
     id: 3,
     title: 'TEEN CEO: Building Your Empire Young',
-    category: { name: 'Business', color: 'bg-purple-600' },
+    category: 'BUSINESS',
     date: 'Jun 20, 2025',
     author: 'Business Team',
     excerpt: 'Inspiring stories of young entrepreneurs and practical steps to start your own business as a teenager.',
-    image: 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop',
+    image: '/src/assets/images/teen ceo/Teen ceo primary.JPG',
     featured: false,
     views: 2800,
-    readTime: 8
+    readTime: 8,
+    folder: 'teen ceo'
   },
   {
     id: 4,
     title: 'HOW TO STAY WISE ABOUT YOUR CENTS',
-    category: { name: 'Money', color: 'bg-green-600' },
+    category: 'MONEY',
     date: 'Jun 18, 2025',
-    author: 'Linet Wanjira',
-    excerpt: 'Teen-friendly financial tips for saving, budgeting, and making smart money decisions.',
-    image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&h=600&fit=crop',
+    author: 'Linet Makenya',
+    excerpt: 'Teen-friendly financial tips for saving, budgeting, and making smart money decisions for your future.',
+    image: '/src/assets/images/savings/savings primary.jpg',
     featured: false,
     views: 1900,
-    readTime: 6
+    readTime: 6,
+    folder: 'savings'
   },
   {
     id: 5,
-    title: 'WHERE IS GOD?',
-    category: { name: 'Lifestyle', color: 'bg-orange-600' },
+    title: 'BOOST YOUR SELF-ESTEEM',
+    category: 'SELF-CARE',
     date: 'Jun 16, 2025',
-    author: 'Faith Team',
-    excerpt: 'Exploring faith, spirituality, and finding meaning as a teenager in today\'s world.',
-    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop',
+    author: 'Mental Health Team',
+    excerpt: 'Practical strategies for building confidence and maintaining positive self-image during teenage years.',
+    image: '/src/assets/images/self-esteem/self-esteem1.jpg',
     featured: false,
     views: 1800,
-    readTime: 7
+    readTime: 7,
+    folder: 'self-esteem'
   },
   {
     id: 6,
-    title: '10 REASONS WHY TEENAGERS ARE HAVING SEX, OR SHOULDN\'T',
-    category: { name: 'Relationships', color: 'bg-pink-600' },
+    title: 'RELATIONSHIPS: NAVIGATING TEEN LOVE',
+    category: 'RELATIONSHIPS',
     date: 'Jun 14, 2025',
-    author: 'Health Team',
-    excerpt: 'A frank discussion about teenage sexuality, consent, and making informed decisions.',
-    image: 'https://images.unsplash.com/photo-1515378960530-7c0da6231fb1?w=800&h=600&fit=crop',
+    author: 'Relationship Team',
+    excerpt: 'A guide to healthy relationships, understanding boundaries, and making informed decisions about love.',
+    image: '/src/assets/images/relationships/relatinships.jpg',
     featured: false,
-    views: 4100,
-    readTime: 8
+    views: 2100,
+    readTime: 9,
+    folder: 'relationships'
+  },
+  {
+    id: 7,
+    title: 'BODY ODOUR: A Teen\'s Guide',
+    category: 'SELF-CARE',
+    date: 'Jun 12, 2025',
+    author: 'Health Team',
+    excerpt: 'Understanding body changes during puberty and maintaining proper hygiene for confidence.',
+    image: '/src/assets/images/body-oduor/body-oduor-1.jpg',
+    featured: false,
+    views: 1600,
+    readTime: 4,
+    folder: 'body-oduor'
+  },
+  {
+    id: 8,
+    title: 'BULLY PROOF: Standing Strong',
+    category: 'LIFESTYLE',
+    date: 'Jun 10, 2025',
+    author: 'Safety Team',
+    excerpt: 'Strategies for dealing with bullying, building resilience, and creating safer school environments.',
+    image: '/src/assets/images/bully/bully-image-1.jpg',
+    featured: false,
+    views: 2200,
+    readTime: 6,
+    folder: 'bully'
+  },
+  {
+    id: 9,
+    title: 'IN THEIR FOOTSTEPS: Career Guidance',
+    category: 'EDUCATION',
+    date: 'Jun 8, 2025',
+    author: 'Career Team',
+    excerpt: 'Learning from successful professionals and mapping your career path as a young Kenyan.',
+    image: '/src/assets/images/career/career primary.jpg',
+    featured: false,
+    views: 1900,
+    readTime: 8,
+    folder: 'career'
+  },
+  {
+    id: 10,
+    title: 'RIDE OR DIE: Friendship Loyalty',
+    category: 'RELATIONSHIPS',
+    date: 'Jun 6, 2025',
+    author: 'Faith Bwari',
+    excerpt: 'Understanding healthy friendship boundaries and the difference between loyalty and enabling.',
+    image: '/src/assets/images/Ride or die/Ride or die.jpg',
+    featured: false,
+    views: 1700,
+    readTime: 5,
+    folder: 'Ride or die'
   }
 ];
 
 const CategoryBadge = ({ category, size = 'md' }) => {
-  const sizes = { 
-    sm: 'px-3 py-1 text-xs', 
-    md: 'px-4 py-2 text-sm', 
-    lg: 'px-6 py-3 text-lg' 
+  const categoryColors = {
+    'SELF-CARE': 'bg-blue-600',
+    'LEADERSHIP': 'bg-red-600',
+    'BUSINESS': 'bg-purple-600',
+    'MONEY': 'bg-green-600',
+    'LIFESTYLE': 'bg-orange-600',
+    'RELATIONSHIPS': 'bg-pink-600',
+    'EDUCATION': 'bg-indigo-600'
   };
-  
+
+  const sizeClasses = {
+    sm: 'px-3 py-1 text-xs',
+    md: 'px-4 py-2 text-sm'
+  };
+
   return (
-    <span className={`${category.color} text-white font-black uppercase tracking-widest ${sizes[size]}`}>
-      {category.name}
+    <span className={`${categoryColors[category] || 'bg-gray-600'} text-white font-black tracking-wider ${sizeClasses[size]}`}>
+      {category}
     </span>
   );
 };
@@ -96,35 +163,33 @@ const ArticleCard = ({ article, featured = false, onClick }) => {
   if (featured) {
     return (
       <div className="relative h-screen cursor-pointer group" onClick={onClick}>
-        <img src={article.image} alt={article.title} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-black/70"></div>
+        <img 
+          src={article.image} 
+          alt={article.title} 
+          className="w-full h-full object-contain bg-gray-900 group-hover:scale-105 transition-transform duration-700" 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20"></div>
         
-        {/* Category */}
+        {/* Category Badge */}
         <div className="absolute top-8 left-8">
-          <CategoryBadge category={article.category} size="lg" />
+          <CategoryBadge category={article.category} />
         </div>
         
-        {/* Title Overlay */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* Content */}
+        <div className="absolute bottom-8 left-8 right-8">
           <h2 
-            className="text-6xl md:text-8xl font-black text-white text-center leading-none tracking-tighter max-w-6xl"
+            className="text-5xl md:text-7xl font-black text-white leading-tight mb-6"
             style={{fontFamily: 'Playfair Display, serif'}}
           >
             {article.title}
           </h2>
-        </div>
-        
-        {/* Bottom Info */}
-        <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end">
-          <div>
-            <p className="text-white text-xl mb-4 max-w-2xl font-bold">{article.excerpt}</p>
-            <div className="flex items-center space-x-6 text-gray-300 text-lg">
-              <span className="font-bold">{article.author}</span>
-              <span>•</span>
-              <span>{article.date}</span>
-              <span>•</span>
-              <span>{article.readTime} min read</span>
-            </div>
+          
+          <div className="flex items-center space-x-6 text-white text-lg">
+            <span className="font-bold">{article.author}</span>
+            <span>•</span>
+            <span>{article.date}</span>
+            <span>•</span>
+            <span>{article.readTime} min read</span>
           </div>
         </div>
       </div>
@@ -137,7 +202,7 @@ const ArticleCard = ({ article, featured = false, onClick }) => {
         <img 
           src={article.image} 
           alt={article.title} 
-          className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500" 
+          className="w-full h-64 object-contain bg-gray-100 group-hover:scale-105 transition-transform duration-500" 
         />
         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all"></div>
         
@@ -172,7 +237,7 @@ const ArticleCard = ({ article, featured = false, onClick }) => {
       
       {/* Article Info */}
       <div className="space-y-2">
-        <p className="text-gray-400 leading-relaxed">
+        <p className="text-gray-600 leading-relaxed">
           {article.excerpt?.substring(0, 120)}...
         </p>
         <div className="flex items-center justify-between text-sm text-gray-500">
@@ -216,7 +281,7 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
   };
 
   return (
-    <div className="pt-20">
+    <div className="pt-20 bg-white">
       {/* Hero Section */}
       <section className="relative h-screen">
         {featuredArticles.map((article, index) => (
@@ -264,7 +329,7 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
       </section>
 
       {/* Categories */}
-      <section className="py-8 bg-gray-900">
+      <section className="py-8 bg-gray-100">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-wrap gap-4 justify-center">
             {[
@@ -274,7 +339,8 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
               { name: 'BUSINESS', color: 'bg-purple-600' },
               { name: 'MONEY', color: 'bg-green-600' },
               { name: 'LIFESTYLE', color: 'bg-orange-600' },
-              { name: 'RELATIONSHIPS', color: 'bg-pink-600' }
+              { name: 'RELATIONSHIPS', color: 'bg-pink-600' },
+              { name: 'EDUCATION', color: 'bg-indigo-600' }
             ].map((category) => (
               <button
                 key={category.name}
@@ -288,10 +354,10 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
       </section>
 
       {/* Articles Grid */}
-      <section className="py-20 bg-gray-900">
+      <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <h2 
-            className="text-5xl font-black mb-12 text-center"
+            className="text-5xl font-black mb-12 text-center text-gray-900"
             style={{fontFamily: 'Playfair Display, serif'}}
           >
             LATEST STORIES
