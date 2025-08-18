@@ -1,9 +1,55 @@
 // File: src/pages/ArticlePage.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Heart, Bookmark, Share2, Eye, Clock, User, Calendar } from 'lucide-react';
+import apiService from '../services/api';
 
 const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
-  if (!article) {
+  const [currentArticle, setCurrentArticleState] = useState(article);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // If we have an article ID but no full article data, fetch it
+  useEffect(() => {
+    const fetchArticle = async () => {
+      if (!article) return;
+      
+      // If we only have an ID, fetch the full article
+      if (typeof article === 'string' || (!article.content && article._id)) {
+        try {
+          setLoading(true);
+          const response = await apiService.getArticle(article._id || article);
+          setCurrentArticleState(response.data.article);
+        } catch (err) {
+          console.error('Error fetching article:', err);
+          setError('Failed to load article');
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setCurrentArticleState(article);
+      }
+    };
+
+    fetchArticle();
+  }, [article]);
+
+  if (loading) {
+    return (
+      <div className="pt-20 min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-500 mx-auto mb-8"></div>
+          <h1 
+            className="text-4xl font-black mb-8 text-white tracking-tight"
+            style={{fontFamily: 'Playfair Display, serif'}}
+          >
+            LOADING ARTICLE...
+          </h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !currentArticle) {
     return (
       <div className="pt-20 min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
@@ -13,9 +59,11 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
           >
             ARTICLE NOT FOUND
           </h1>
+          <p className="text-xl text-gray-300 mb-8">{error || 'The article you\'re looking for doesn\'t exist.'}</p>
           <button 
             onClick={() => setCurrentPage('home')}
             className="bg-red-600 hover:bg-red-700 px-8 py-4 text-white font-black tracking-wider transition-all text-xl"
+            style={{fontFamily: 'Space Grotesk, sans-serif'}}
           >
             RETURN HOME
           </button>
@@ -43,7 +91,7 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
   return (
     <div className="pt-20 min-h-screen bg-black text-white">
       
-      {/* Back Navigation Bar - EXACT HOMEPAGE STYLE */}
+      {/* Back Navigation Bar */}
       <div className="bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-6">
           <button 
@@ -64,20 +112,23 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
       {/* Hero Section */}
       <div className="relative h-screen overflow-hidden">
         <img 
-          src={article.image} 
-          alt={article.title} 
-          className="w-full h-full object-contain bg-gray-900"
+          src={currentArticle.image} 
+          alt={currentArticle.title} 
+          className="w-full h-full object-cover bg-gray-900"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30"></div>
         
         {/* Category Badge */}
         <div className="absolute top-8 left-8">
-          <span className={`${categoryColors[article.category] || 'bg-gray-600'} text-white px-6 py-3 font-black text-lg tracking-widest`}>
-            {article.category}
+          <span 
+            className={`${categoryColors[currentArticle.category] || 'bg-gray-600'} text-white px-6 py-3 font-black text-lg tracking-widest`}
+            style={{fontFamily: 'Space Grotesk, sans-serif'}}
+          >
+            {currentArticle.category}
           </span>
         </div>
 
-        {/* Action Buttons - EXACT HOMEPAGE STYLE */}
+        {/* Action Buttons */}
         <div className="absolute top-8 right-8 flex space-x-4">
           <button className="w-12 h-12 bg-red-600 flex items-center justify-center hover:bg-red-700 transition-all">
             <Heart className="w-5 h-5 text-white" />
@@ -90,44 +141,49 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
           </button>
         </div>
 
-        {/* Title and Meta */}
-        <div className="absolute bottom-0 left-0 right-0 p-8">
-          <div className="max-w-7xl mx-auto">
+        {/* Article Title and Meta */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center max-w-6xl px-6">
             <h1 
-              className="text-6xl md:text-8xl font-black text-white leading-none mb-8 tracking-tight"
+              className="text-6xl md:text-8xl font-black text-white mb-8 leading-none drop-shadow-2xl"
               style={{fontFamily: 'Playfair Display, serif'}}
             >
-              {article.title?.toUpperCase()}
+              {currentArticle.title}
             </h1>
             
-            {/* Meta Info - EXACT HOMEPAGE BLOCKS */}
-            <div className="flex flex-wrap gap-6">
-              <div className="bg-red-600 px-6 py-3">
-                <div className="flex items-center space-x-2">
-                  <User className="w-5 h-5 text-white" />
-                  <span className="font-black text-white tracking-wider">{article.author?.toUpperCase()}</span>
-                </div>
+            <p 
+              className="text-2xl text-white/90 mb-12 leading-relaxed max-w-4xl mx-auto"
+              style={{fontFamily: 'Inter, sans-serif'}}
+            >
+              {currentArticle.excerpt}
+            </p>
+
+            {/* Article Meta Info */}
+            <div className="flex flex-wrap justify-center items-center gap-6 text-white/80">
+              <div className="flex items-center space-x-2 bg-white/20 px-6 py-3 backdrop-blur-sm">
+                <User className="w-5 h-5" />
+                <span className="font-bold">{currentArticle.author}</span>
               </div>
               
-              <div className="bg-purple-600 px-6 py-3">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-5 h-5 text-white" />
-                  <span className="font-black text-white tracking-wider">{article.date?.toUpperCase()}</span>
-                </div>
+              <div className="flex items-center space-x-2 bg-white/20 px-6 py-3 backdrop-blur-sm">
+                <Calendar className="w-5 h-5" />
+                <span className="font-bold">
+                  {new Date(currentArticle.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
               </div>
               
-              <div className="bg-green-600 px-6 py-3">
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5 text-white" />
-                  <span className="font-black text-white tracking-wider">{article.readTime} MIN READ</span>
-                </div>
+              <div className="flex items-center space-x-2 bg-white/20 px-6 py-3 backdrop-blur-sm">
+                <Clock className="w-5 h-5" />
+                <span className="font-bold">{currentArticle.readTime} MIN READ</span>
               </div>
               
-              <div className="bg-blue-600 px-6 py-3">
-                <div className="flex items-center space-x-2">
-                  <Eye className="w-5 h-5 text-white" />
-                  <span className="font-black text-white tracking-wider">{article.views?.toLocaleString()} VIEWS</span>
-                </div>
+              <div className="flex items-center space-x-2 bg-white/20 px-6 py-3 backdrop-blur-sm">
+                <Eye className="w-5 h-5" />
+                <span className="font-bold">{currentArticle.views?.toLocaleString()} VIEWS</span>
               </div>
             </div>
           </div>
@@ -138,13 +194,13 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
       <div className="bg-black">
         <div className="max-w-6xl mx-auto px-8 py-20">
           
-          {/* Excerpt Block - SHARP EDGES */}
+          {/* Excerpt Block */}
           <div className="mb-16 bg-gray-900 p-12">
             <p 
               className="text-3xl font-bold text-white leading-relaxed"
               style={{fontFamily: 'Space Grotesk, sans-serif'}}
             >
-              {article.excerpt?.toUpperCase()}
+              {currentArticle.excerpt?.toUpperCase()}
             </p>
           </div>
 
@@ -158,123 +214,115 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
                 style={{fontFamily: 'Inter, sans-serif'}}
               >
                 <div className="text-gray-100 leading-relaxed space-y-8 text-lg">
-                  <p className="text-xl leading-relaxed">
-                    This is where the POWERFUL article content would be displayed. The content would be 
-                    <strong className="text-red-500 font-black"> BOLD</strong>, 
-                    <strong className="text-yellow-500 font-black"> IMPACTFUL</strong>, and 
-                    <strong className="text-green-500 font-black"> LIFE-CHANGING</strong> - 
-                    just like the Teendom brand demands.
-                  </p>
+                  {/* Display the actual content from database */}
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: currentArticle.content }} 
+                    className="article-content"
+                  />
                   
-                  <p className="text-xl leading-relaxed">
-                    The article would contain <strong className="text-blue-500 font-black">ENGAGING</strong>, 
-                    educational content focused on empowering young Kenyan citizens with knowledge about their 
-                    constitution, rights, and civic responsibilities.
-                  </p>
-
-                  {/* Subheading - SHARP */}
-                  <div className="bg-red-600 p-8 my-12">
-                    <h2 
-                      className="text-4xl font-black text-white text-center"
-                      style={{fontFamily: 'Playfair Display, serif'}}
-                    >
-                      KEY TAKEAWAYS
-                    </h2>
-                  </div>
-
-                  <p className="text-xl leading-relaxed">
-                    Each article would conclude with <strong className="text-purple-500 font-black">ACTIONABLE INSIGHTS</strong> 
-                    and clear takeaways that readers can apply in their daily lives and civic engagement.
-                  </p>
-                  
-                  {/* Quote Block - SHARP */}
-                  <div className="bg-gray-900 p-12 my-12">
-                    <blockquote 
-                      className="text-3xl font-black text-white text-center leading-tight"
-                      style={{fontFamily: 'Space Grotesk, sans-serif'}}
-                    >
-                      "KNOWLEDGE IS POWER. CIVIC EDUCATION IS EMPOWERMENT."
-                    </blockquote>
-                  </div>
+                  {/* Tags */}
+                  {currentArticle.tags && currentArticle.tags.length > 0 && (
+                    <div className="mt-12 pt-8 border-t border-gray-700">
+                      <h3 
+                        className="text-2xl font-black text-white mb-4"
+                        style={{fontFamily: 'Space Grotesk, sans-serif'}}
+                      >
+                        TAGS
+                      </h3>
+                      <div className="flex flex-wrap gap-3">
+                        {currentArticle.tags.map((tag, index) => (
+                          <span 
+                            key={index}
+                            className={`${categoryColors[currentArticle.category] || 'bg-gray-600'} text-white px-4 py-2 text-sm font-bold`}
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-
+            
             {/* Sidebar */}
-            <div className="md:col-span-4 space-y-8">
-              
-              {/* Author Block */}
-              <div className="bg-gray-900 p-8">
-                <h3 
-                  className="text-2xl font-black text-red-500 mb-6 tracking-wider"
-                  style={{fontFamily: 'Space Grotesk, sans-serif'}}
-                >
-                  AUTHOR
-                </h3>
-                <div className="flex items-start space-x-4 mb-6">
-                  <div className="w-20 h-20 bg-red-600 flex items-center justify-center text-white font-black text-2xl">
-                    {article.author?.charAt(0)}
-                  </div>
-                  <div>
-                    <h4 
-                      className="text-xl font-black text-white mb-2"
-                      style={{fontFamily: 'Space Grotesk, sans-serif'}}
-                    >
-                      {article.author?.toUpperCase()}
-                    </h4>
-                  </div>
-                </div>
-                <p className="text-gray-300 leading-relaxed">
-                  Expert in youth empowerment and civic education. Dedicated to building informed citizens for Kenya's future.
-                </p>
-              </div>
-
-              {/* Related Articles Block */}
-              <div className="bg-gray-900 p-8">
-                <h3 
-                  className="text-2xl font-black text-yellow-500 mb-6 tracking-wider"
-                  style={{fontFamily: 'Space Grotesk, sans-serif'}}
-                >
-                  MORE STORIES
-                </h3>
-                <div className="space-y-4">
-                  {[1, 2, 3].map((item) => (
-                    <div key={item} className="border-l-4 border-red-600 pl-4">
-                      <h4 className="font-black text-white text-lg leading-tight">
-                        RELATED STORY TITLE HERE
-                      </h4>
-                      <p className="text-gray-400 text-sm mt-1">5 MIN READ</p>
+            <div className="md:col-span-4">
+              <div className="sticky top-8 space-y-8">
+                
+                {/* Article Stats */}
+                <div className="bg-gray-900 p-6">
+                  <h3 
+                    className="text-xl font-black text-white mb-4"
+                    style={{fontFamily: 'Space Grotesk, sans-serif'}}
+                  >
+                    ARTICLE STATS
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Views:</span>
+                      <span className="text-white font-bold">{currentArticle.views?.toLocaleString()}</span>
                     </div>
-                  ))}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Reading Time:</span>
+                      <span className="text-white font-bold">{currentArticle.readTime} minutes</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Category:</span>
+                      <span className="text-white font-bold">{currentArticle.category}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Published:</span>
+                      <span className="text-white font-bold">
+                        {new Date(currentArticle.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Share Article */}
+                <div className="bg-gray-900 p-6">
+                  <h3 
+                    className="text-xl font-black text-white mb-4"
+                    style={{fontFamily: 'Space Grotesk, sans-serif'}}
+                  >
+                    SHARE THIS STORY
+                  </h3>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    <button className="bg-blue-600 hover:bg-blue-700 p-3 transition-all">
+                      <span className="text-white font-bold text-sm">Facebook</span>
+                    </button>
+                    <button className="bg-blue-400 hover:bg-blue-500 p-3 transition-all">
+                      <span className="text-white font-bold text-sm">Twitter</span>
+                    </button>
+                    <button className="bg-green-600 hover:bg-green-700 p-3 transition-all">
+                      <span className="text-white font-bold text-sm">WhatsApp</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
       </div>
 
-      {/* Call to Action */}
-      <section className="bg-red-600 py-24">
-        <div className="max-w-6xl mx-auto text-center px-8">
+      {/* Related Articles CTA */}
+      <section className="py-20 bg-red-600">
+        <div className="max-w-4xl mx-auto text-center px-6">
           <h2 
-            className="text-6xl md:text-7xl font-black text-white mb-8 leading-none tracking-tight"
+            className="text-5xl font-black mb-8 text-white"
             style={{fontFamily: 'Playfair Display, serif'}}
           >
-            READY TO CHANGE THE GAME?
+            WANT MORE AMAZING STORIES?
           </h2>
-          <p 
-            className="text-2xl font-bold text-red-100 mb-12 tracking-wide"
-            style={{fontFamily: 'Space Grotesk, sans-serif'}}
-          >
-            JOIN THE YOUNG CITIZENS PROGRAM AND BECOME AN EMPOWERED LEADER
-          </p>
+          
           <button 
-            onClick={() => setCurrentPage('ycp')}
-            className="bg-black text-white px-16 py-6 font-black text-2xl tracking-widest hover:bg-gray-900 transition-all"
+            onClick={() => setCurrentPage('articles')}
+            className="bg-white text-red-600 px-12 py-6 font-black text-xl tracking-wider hover:bg-gray-100 transition-all"
             style={{fontFamily: 'Space Grotesk, sans-serif'}}
           >
-            JOIN YCP NOW
+            EXPLORE ALL ARTICLES
           </button>
         </div>
       </section>

@@ -1,11 +1,12 @@
+/* File: src/index.css */
 @import "tailwindcss/base";
 @import "tailwindcss/components"; 
 @import "tailwindcss/utilities";
 
-/* Import Google Fonts */
+/* Import Clean, Professional Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
-/* Root Variables */
+/* Root Variables - Clean Brand Colors */
 :root {
   --brand-red: #DC2626;
   --brand-purple: #7C3AED;
@@ -27,8 +28,8 @@
 
 body {
   font-family: var(--font-body);
-  background-color: #000;
-  color: #fff;
+  background-color: #fff;
+  color: #1f2937;
   line-height: 1.6;
 }
 
