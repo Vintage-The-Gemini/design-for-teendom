@@ -1,224 +1,154 @@
-// File: src/pages/HomePage.jsx
+// File: frontend/src/pages/HomePage.jsx
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Heart, Bookmark, Share2, Eye, Clock } from 'lucide-react';
-import apiService from '../services/api';
-
-// CLEAN ARTICLE CARD COMPONENT
-const ArticleCard = ({ article, featured = false, onClick }) => {
-  const categoryColors = {
-    'SELF-CARE': 'bg-blue-600',
-    'LEADERSHIP': 'bg-red-600', 
-    'BUSINESS': 'bg-purple-600',
-    'MONEY': 'bg-green-600',
-    'LIFESTYLE': 'bg-orange-600',
-    'RELATIONSHIPS': 'bg-pink-600',
-    'EDUCATION': 'bg-indigo-600',
-    'POLITICS': 'bg-red-700'
-  };
-
-  return (
-    <article 
-      className={`group cursor-pointer transform transition-all duration-300 hover:scale-105 ${
-        featured ? 'lg:col-span-2' : ''
-      }`}
-      onClick={onClick}
-    >
-      <div className="relative overflow-hidden bg-white shadow-xl">
-        {/* Hero Image */}
-        <div className="relative h-80 overflow-hidden">
-          <img 
-            src={article.image} 
-            alt={article.title} 
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-          />
-          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all"></div>
-          
-          {/* Category Badge */}
-          <div className="absolute top-4 left-4">
-            <span 
-              className={`${categoryColors[article.category] || 'bg-gray-600'} text-white px-4 py-2 font-black text-sm tracking-wider`}
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              {article.category}
-            </span>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-all">
-            <button className="w-10 h-10 bg-red-600 flex items-center justify-center hover:bg-red-700 transition-all">
-              <Heart className="w-4 h-4 text-white" />
-            </button>
-            <button className="w-10 h-10 bg-blue-600 flex items-center justify-center hover:bg-blue-700 transition-all">
-              <Bookmark className="w-4 h-4 text-white" />
-            </button>
-            <button className="w-10 h-10 bg-green-600 flex items-center justify-center hover:bg-green-700 transition-all">
-              <Share2 className="w-4 h-4 text-white" />
-            </button>
-          </div>
-
-          {/* Title Overlay */}
-          <div className="absolute bottom-4 left-4 right-4">
-            <h3 
-              className={`${featured ? 'text-3xl' : 'text-xl'} font-black text-white leading-tight mb-2`}
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              {article.title}
-            </h3>
-            
-            {/* Stats */}
-            <div className="flex items-center space-x-4 text-white/90 text-sm">
-              <div className="flex items-center space-x-1">
-                <Eye className="w-4 h-4" />
-                <span>{article.views?.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Clock className="w-4 h-4" />
-                <span>{article.readTime}min</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Content Section */}
-        <div className="p-6 bg-white">
-          <p className="text-gray-600 leading-relaxed mb-4">
-            {article.excerpt?.substring(0, 120)}...
-          </p>
-          
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-gray-800">{article.author}</span>
-              <span className="text-gray-400">•</span>
-              <span className="text-gray-500">
-                {new Date(article.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-};
+import ALL_ARTICLES from '../data/articles';
 
 const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [featuredArticles, setFeaturedArticles] = useState([]);
-  const [regularArticles, setRegularArticles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  
+  // Get featured articles (first 3)
+  const featuredArticles = ALL_ARTICLES.slice(0, 3);
+  const regularArticles = ALL_ARTICLES.slice(3, 9); // Show 6 more articles in grid
 
-  // Fetch articles from API
   useEffect(() => {
-    const fetchArticles = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch featured articles
-        const featuredResponse = await apiService.getFeaturedArticles();
-        console.log('📚 Featured Articles:', featuredResponse);
-        setFeaturedArticles(featuredResponse.data.articles || []);
-        
-        // Fetch regular articles (non-featured)
-        const regularResponse = await apiService.getRegularArticles(6);
-        console.log('📰 Regular Articles:', regularResponse);
-        setRegularArticles(regularResponse.data.articles || []);
-        
-      } catch (err) {
-        console.error('Error fetching articles:', err);
-        setError('Failed to load articles. Make sure the backend is running!');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchArticles();
-  }, []);
-
-  // Auto-slide for featured articles
-  useEffect(() => {
-    if (featuredArticles.length > 0) {
-      const timer = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % featuredArticles.length);
-      }, 5000);
-      return () => clearInterval(timer);
-    }
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % featuredArticles.length);
+    }, 5000);
+    return () => clearInterval(timer);
   }, [featuredArticles.length]);
 
-  // Enhanced navigation function
   const openArticle = (article) => {
-    console.log('📖 Opening article:', article.title, 'ID:', article._id);
+    console.log('🔥 Opening article from Home Page:', article.title, 'ID:', article.id);
     setCurrentArticle(article);
     setCurrentPage('article');
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="pt-20 min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600 mx-auto mb-8"></div>
-          <h2 
-            className="text-4xl font-black text-gray-900"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            Loading Articles...
-          </h2>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="pt-20 min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <h2 
-            className="text-4xl font-black text-red-600 mb-4"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            Something Went Wrong
-          </h2>
-          <p className="text-gray-600 mb-8">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-red-600 text-white px-8 py-4 font-black rounded hover:bg-red-700 transition-all"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="pt-20 bg-white">
-      {/* DIGNIFIED HERO SECTION */}
-      {featuredArticles.length > 0 && (
-        <section className="relative h-screen overflow-hidden">
-          {featuredArticles.map((article, index) => (
-            <div
-              key={article._id}
-              className={`absolute inset-0 transition-opacity duration-1000 ${
-                index === currentSlide ? 'opacity-100' : 'opacity-0'
-              }`}
+    <div className="bg-white text-gray-900">
+      {/* INTRO HERO SECTION - Teendom Brand Introduction */}
+      <section className="pt-20 pb-20 bg-gradient-to-br from-red-50 via-white to-red-50 relative overflow-hidden">
+        {/* Background Decorations */}
+        <div className="absolute top-10 left-10 w-32 h-32 bg-red-500 rounded-full opacity-10 animate-float"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 bg-red-600 rounded-full opacity-15"></div>
+        <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-red-400 rounded-full opacity-10"></div>
+        
+        <div className="max-w-7xl mx-auto px-6 text-center relative">
+          {/* Main Brand Message */}
+          <h1 
+            className="text-6xl md:text-8xl font-black text-gray-900 mb-8 leading-none tracking-tight"
+            style={{fontFamily: 'Playfair Display, serif'}}
+          >
+            EMPOWERING
+            <br/>
+            <span className="text-red-600">TEEN VOICES</span>
+          </h1>
+          
+          <div className="max-w-4xl mx-auto">
+            <p 
+              className="text-xl md:text-2xl font-medium text-gray-700 leading-relaxed mb-12"
+              style={{fontFamily: 'Inter, sans-serif'}}
             >
-              <div className="relative h-full">
-                <img 
-                  src={article.image} 
-                  alt={article.title} 
-                  className="w-full h-full object-cover" 
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
-                
-                {/* Professional Hero Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-12">
-                  <div className="max-w-7xl mx-auto">
+              Welcome to <strong className="text-red-600">Teendom Africa</strong> - where young voices shape the future. 
+              From constitutional education to celebrating changemakers, we're building informed, 
+              active citizens ready to transform Kenya.
+            </p>
+          </div>
+
+          {/* Key Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 max-w-4xl mx-auto">
+            <div className="bg-white p-6 rounded-lg shadow-lg border-l-4 border-red-600">
+              <div 
+                className="text-3xl font-black text-red-600 mb-2"
+                style={{fontFamily: 'Playfair Display, serif'}}
+              >
+                2,500+
+              </div>
+              <p className="text-gray-700 font-semibold">Young Citizens Empowered</p>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow-lg border-l-4 border-red-600">
+              <div 
+                className="text-3xl font-black text-red-600 mb-2"
+                style={{fontFamily: 'Playfair Display, serif'}}
+              >
+                10+
+              </div>
+              <p className="text-gray-700 font-semibold">Schools Reached</p>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow-lg border-l-4 border-red-600">
+              <div 
+                className="text-3xl font-black text-red-600 mb-2"
+                style={{fontFamily: 'Playfair Display, serif'}}
+              >
+                100+
+              </div>
+              <p className="text-gray-700 font-semibold">Future Changemakers</p>
+            </div>
+          </div>
+
+          {/* Call to Action */}
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <button 
+              onClick={() => setCurrentPage('ycp')}
+              className="bg-red-600 hover:bg-red-700 text-white px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
+              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+            >
+              JOIN YOUNG CITIZENS PROGRAM
+            </button>
+            <button 
+              onClick={() => setCurrentPage('awards')}
+              className="bg-white hover:bg-gray-50 text-red-600 border-2 border-red-600 px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
+              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+            >
+              EXPLORE TEENDOM AWARDS
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURED ARTICLES CAROUSEL - Now Second Section */}
+      <section className="py-16 bg-gray-900 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          {/* Section Header */}
+          <div className="text-center mb-12">
+            <h2 
+              className="text-4xl md:text-5xl font-black text-white mb-4"
+              style={{fontFamily: 'Playfair Display, serif'}}
+            >
+              FEATURED <span className="text-red-500">STORIES</span>
+            </h2>
+            <p 
+              className="text-xl text-gray-400 font-semibold"
+              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+            >
+              TRENDING STORIES SHAPING YOUNG MINDS
+            </p>
+          </div>
+
+          {/* Featured Articles Slider */}
+          <div className="relative h-96 md:h-[500px] mb-8 overflow-hidden rounded-lg">
+            {featuredArticles.map((article, index) => (
+              <div
+                key={article.id}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  index === currentSlide ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <div className="relative h-full">
+                  <img 
+                    src={article.image} 
+                    alt={article.title} 
+                    className="w-full h-full object-cover" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+                  
+                  {/* Article Content Overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12">
                     <div className="max-w-4xl">
-                      {/* Category */}
-                      <div className="mb-6">
+                      {/* Category Badge */}
+                      <div className="mb-4">
                         <span 
-                          className="bg-red-600 text-white px-6 py-3 font-black text-sm tracking-wider uppercase"
+                          className="bg-red-600 text-white px-4 py-2 font-black text-sm tracking-wider uppercase"
                           style={{fontFamily: 'Space Grotesk, sans-serif'}}
                         >
                           {article.category}
@@ -226,79 +156,62 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
                       </div>
                       
                       {/* Title */}
-                      <h1 
-                        className="text-5xl md:text-7xl font-black text-white mb-6 leading-tight"
+                      <h3 
+                        className="text-3xl md:text-5xl font-black text-white mb-4 leading-tight"
                         style={{fontFamily: 'Playfair Display, serif'}}
                       >
                         {article.title}
-                      </h1>
+                      </h3>
                       
                       {/* Excerpt */}
                       <p 
-                        className="text-xl text-white/90 mb-8 leading-relaxed max-w-3xl"
+                        className="text-lg text-white/90 mb-6 leading-relaxed max-w-3xl"
                         style={{fontFamily: 'Inter, sans-serif'}}
                       >
                         {article.excerpt}
                       </p>
                       
                       {/* Meta Info */}
-                      <div className="flex items-center space-x-6 text-white/80 mb-8">
-                        <span className="font-bold">{article.author}</span>
+                      <div className="flex items-center space-x-4 text-white/80 mb-6">
+                        <span className="font-semibold">{article.author}</span>
                         <span>•</span>
                         <span>{new Date(article.createdAt).toLocaleDateString()}</span>
                         <span>•</span>
                         <span>{article.readTime} min read</span>
-                        <span>•</span>
-                        <span>{article.views?.toLocaleString()} views</span>
                       </div>
                       
-                      {/* CTA Button */}
+                      {/* Read Button */}
                       <button 
                         onClick={() => openArticle(article)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 font-black tracking-wider transition-all"
+                        className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 font-black tracking-wider transition-all"
                         style={{fontFamily: 'Space Grotesk, sans-serif'}}
                       >
-                        READ ARTICLE
+                        READ FULL STORY
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-          
-          {/* Navigation Arrows */}
-          <button 
-            onClick={() => setCurrentSlide((prev) => (prev - 1 + featuredArticles.length) % featuredArticles.length)}
-            className="absolute left-6 top-1/2 transform -translate-y-1/2 z-30 w-12 h-12 bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all"
-          >
-            <ArrowLeft className="w-6 h-6 text-white" />
-          </button>
-          
-          <button 
-            onClick={() => setCurrentSlide((prev) => (prev + 1) % featuredArticles.length)}
-            className="absolute right-6 top-1/2 transform -translate-y-1/2 z-30 w-12 h-12 bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all"
-          >
-            <ArrowRight className="w-6 h-6 text-white" />
-          </button>
+            ))}
+          </div>
 
-          {/* Slide Indicators */}
-          <div className="absolute bottom-8 right-12 z-30 flex space-x-2">
+          {/* Slider Indicators */}
+          <div className="flex justify-center space-x-2">
             {featuredArticles.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`w-3 h-3 transition-all ${
+                className={`w-3 h-3 rounded-full transition-all ${
                   index === currentSlide ? 'bg-red-500' : 'bg-white/50'
                 }`}
               />
             ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* Categories */}
-      <section className="py-8 bg-gray-100">
+      {/* CATEGORIES SECTION */}
+      <section className="py-12 bg-gray-100">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-wrap gap-4 justify-center">
             {[
@@ -324,24 +237,72 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
         </div>
       </section>
 
-      {/* Articles Grid */}
+      {/* MORE ARTICLES GRID */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
-          <h2 
-            className="text-5xl font-black mb-12 text-center text-gray-900"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            LATEST STORIES
-          </h2>
+          <div className="text-center mb-12">
+            <h2 
+              className="text-4xl md:text-5xl font-black mb-4 text-gray-900"
+              style={{fontFamily: 'Playfair Display, serif'}}
+            >
+              LATEST <span className="text-red-600">STORIES</span>
+            </h2>
+            <p 
+              className="text-xl text-gray-600 font-semibold"
+              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+            >
+              DISCOVER MORE CONTENT CRAFTED FOR YOUNG MINDS
+            </p>
+          </div>
           
           {regularArticles.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {regularArticles.map((article) => (
-                <ArticleCard 
-                  key={article._id} 
-                  article={article}
+                <article 
+                  key={article.id} 
+                  className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden rounded-lg"
                   onClick={() => openArticle(article)}
-                />
+                >
+                  {/* Image Container with Proper Aspect Ratio */}
+                  <div className="relative h-48 overflow-hidden">
+                    <img 
+                      src={article.image} 
+                      alt={article.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                    />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all"></div>
+                    
+                    {/* Category Badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className="bg-red-600 text-white px-3 py-1 font-black text-xs tracking-wider">
+                        {article.category}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="p-6">
+                    <h3 
+                      className="text-xl font-black text-gray-900 mb-3 leading-tight group-hover:text-red-600 transition-colors"
+                      style={{fontFamily: 'Playfair Display, serif'}}
+                    >
+                      {article.title}
+                    </h3>
+                    
+                    <p 
+                      className="text-gray-600 mb-4 leading-relaxed"
+                      style={{fontFamily: 'Inter, sans-serif'}}
+                    >
+                      {article.excerpt.substring(0, 120)}...
+                    </p>
+                    
+                    {/* Meta */}
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <span className="font-semibold">{article.author}</span>
+                      <span>{article.readTime} min read</span>
+                    </div>
+                  </div>
+                </article>
               ))}
             </div>
           ) : (
@@ -349,37 +310,110 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
               <p className="text-gray-500 text-lg">No articles available at the moment.</p>
             </div>
           )}
-          
-          {/* View All Button */}
-          <div className="text-center mt-16">
+
+          {/* View All Articles Button */}
+          <div className="text-center mt-12">
             <button 
               onClick={() => setCurrentPage('articles')}
-              className="bg-red-600 hover:bg-red-700 text-white px-12 py-6 font-black text-xl tracking-wider transition-all"
+              className="bg-red-600 hover:bg-red-700 text-white px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
               style={{fontFamily: 'Space Grotesk, sans-serif'}}
             >
-              VIEW ALL STORIES
+              VIEW ALL ARTICLES
             </button>
           </div>
         </div>
       </section>
 
-      {/* Newsletter */}
+      {/* PROGRAMS SHOWCASE */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 
+              className="text-4xl md:text-5xl font-black mb-4 text-gray-900"
+              style={{fontFamily: 'Playfair Display, serif'}}
+            >
+              OUR <span className="text-red-600">PROGRAMS</span>
+            </h2>
+            <p 
+              className="text-xl text-gray-600 font-semibold"
+              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+            >
+              BUILDING THE NEXT GENERATION OF LEADERS
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* Young Citizens Program */}
+            <div className="bg-white p-8 rounded-lg shadow-lg">
+              <h3 
+                className="text-2xl font-black text-gray-900 mb-4"
+                style={{fontFamily: 'Space Grotesk, sans-serif'}}
+              >
+                YOUNG CITIZENS PROGRAM
+              </h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Comprehensive constitutional education program empowering teens with knowledge 
+                of their rights, responsibilities, and role in Kenya's democracy.
+              </p>
+              <button 
+                onClick={() => setCurrentPage('ycp')}
+                className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 font-black tracking-wider transition-all"
+              >
+                LEARN MORE
+              </button>
+            </div>
+
+            {/* Teendom Awards */}
+            <div className="bg-white p-8 rounded-lg shadow-lg">
+              <h3 
+                className="text-2xl font-black text-gray-900 mb-4"
+                style={{fontFamily: 'Space Grotesk, sans-serif'}}
+              >
+                TEENDOM AWARDS
+              </h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Celebrating exceptional young changemakers across Kenya who are making 
+                a difference in their communities and beyond.
+              </p>
+              <button 
+                onClick={() => setCurrentPage('awards')}
+                className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 font-black tracking-wider transition-all"
+              >
+                EXPLORE AWARDS
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* NEWSLETTER CTA */}
       <section className="py-20 bg-red-600">
         <div className="max-w-4xl mx-auto text-center px-6">
           <h2 
-            className="text-6xl font-black mb-8 text-white"
+            className="text-5xl font-black mb-6 text-white"
             style={{fontFamily: 'Playfair Display, serif'}}
           >
             STAY IN THE LOOP
           </h2>
           
-          <div className="bg-white p-8 max-w-md mx-auto">
+          <p 
+            className="text-xl text-red-100 mb-10 font-semibold"
+            style={{fontFamily: 'Space Grotesk, sans-serif'}}
+          >
+            GET THE LATEST STORIES, OPPORTUNITIES & UPDATES DELIVERED TO YOUR INBOX
+          </p>
+          
+          <div className="bg-white rounded-lg p-6 max-w-md mx-auto shadow-xl">
             <input 
               type="email" 
-              placeholder="YOUR EMAIL"
-              className="w-full px-4 py-4 bg-gray-100 text-black font-bold placeholder-gray-600 mb-4 focus:outline-none focus:bg-white"
+              placeholder="Enter your email address"
+              className="w-full px-4 py-3 bg-gray-100 text-black font-semibold placeholder-gray-600 mb-4 focus:outline-none focus:bg-white rounded"
+              style={{fontFamily: 'Inter, sans-serif'}}
             />
-            <button className="w-full bg-black text-white py-4 font-black tracking-wider hover:bg-gray-800 transition-all">
+            <button 
+              className="w-full bg-red-600 text-white py-3 font-black tracking-wider hover:bg-red-700 transition-all rounded"
+              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+            >
               SUBSCRIBE NOW
             </button>
           </div>
