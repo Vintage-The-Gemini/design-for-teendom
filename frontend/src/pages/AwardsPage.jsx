@@ -1,6 +1,5 @@
 // File: frontend/src/pages/AwardsPage.jsx
 import React, { useState } from 'react';
-import ALL_ARTICLES from '../data/articles';
 
 const AwardsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState(0);

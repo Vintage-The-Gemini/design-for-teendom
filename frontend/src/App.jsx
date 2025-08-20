@@ -1,4 +1,4 @@
-// File: src/App.jsx
+// File: frontend/src/App.jsx
 import React, { useState } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -7,10 +7,19 @@ import ArticlePage from './pages/ArticlePage';
 import ArticlesPage from './pages/ArticlesPage';
 import YCPPage from './pages/YCPPage';
 import AwardsPage from './pages/AwardsPage';
+import AdminPanel from './components/admin/AdminPanel';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [currentArticle, setCurrentArticle] = useState(null);
+
+  // Check if accessing admin panel
+  const isAdminRoute = window.location.pathname.startsWith('/admin') || currentPage === 'admin';
+
+  // Admin panel route
+  if (isAdminRoute) {
+    return <AdminPanel />;
+  }
 
   const renderPage = () => {
     switch (currentPage) {

@@ -1,19 +1,69 @@
 // File: frontend/src/pages/HomePage.jsx
 import React, { useState, useEffect } from 'react';
-import ALL_ARTICLES from '../data/articles';
+import apiService from '../services/api';
 
 const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [featuredArticles, setFeaturedArticles] = useState([]);
+  const [regularArticles, setRegularArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Get featured articles (first 3)
-  const featuredArticles = ALL_ARTICLES.slice(0, 3);
-  const regularArticles = ALL_ARTICLES.slice(3, 9); // Show 6 more articles in grid
-
+  // Fetch articles from API
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % featuredArticles.length);
-    }, 5000);
-    return () => clearInterval(timer);
+    const fetchArticles = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Check backend health first
+        await apiService.healthCheck();
+        
+        // Fetch featured articles
+        const featuredResponse = await apiService.getFeaturedArticles(3);
+        console.log('📚 Featured Articles:', featuredResponse);
+        setFeaturedArticles(featuredResponse.data?.articles || []);
+        
+        // Fetch regular articles (non-featured)
+        const regularResponse = await apiService.getRegularArticles(6);
+        console.log('📰 Regular Articles:', regularResponse);
+        setRegularArticles(regularResponse.data?.articles || []);
+        
+      } catch (err) {
+        console.error('Error fetching articles:', err);
+        setError('Failed to load articles. Make sure the backend is running on port 5000!');
+        
+        // Set some fallback data for development
+        setFeaturedArticles([
+          {
+            id: 'temp-1',
+            title: 'BACKEND CONNECTION NEEDED',
+            category: 'SYSTEM',
+            author: 'Teendom Team',
+            excerpt: 'Please start the backend server to see real articles.',
+            image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+            createdAt: new Date().toISOString(),
+            readTime: 1,
+            views: 0
+          }
+        ]);
+        setRegularArticles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticles();
+  }, []);
+
+  // Auto-slide for featured articles
+  useEffect(() => {
+    if (featuredArticles.length > 1) {
+      const timer = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % featuredArticles.length);
+      }, 5000);
+      return () => clearInterval(timer);
+    }
   }, [featuredArticles.length]);
 
   const openArticle = (article) => {
@@ -21,6 +71,47 @@ const HomePage = ({ setCurrentPage, setCurrentArticle }) => {
     setCurrentArticle(article);
     setCurrentPage('article');
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="pt-20 bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-semibold">Loading articles...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state with backend instructions
+  if (error) {
+    return (
+      <div className="pt-20 bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-2xl mx-auto px-6">
+          <div className="text-6xl mb-6">⚠️</div>
+          <h2 className="text-3xl font-black text-gray-900 mb-4">Backend Connection Required</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="bg-gray-100 p-6 rounded-lg text-left">
+            <h3 className="font-black text-gray-900 mb-3">To fix this:</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm">
+              <li>Open terminal and navigate to the backend folder</li>
+              <li>Run: <code className="bg-gray-200 px-2 py-1 rounded">npm install</code></li>
+              <li>Run: <code className="bg-gray-200 px-2 py-1 rounded">npm start</code></li>
+              <li>Backend should start on port 5000</li>
+              <li>Refresh this page</li>
+            </ol>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-6 bg-red-600 text-white px-6 py-3 font-bold rounded-lg hover:bg-red-700 transition-all"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white text-gray-900">

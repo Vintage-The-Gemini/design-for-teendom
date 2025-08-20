@@ -1,24 +1,49 @@
 // File: frontend/src/pages/ArticlesPage.jsx
-import React, { useState } from 'react';
-import ALL_ARTICLES from '../data/articles';
+import React, { useState, useEffect } from 'react';
+import apiService from '../services/api';
 
 const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch articles from API
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await apiService.getArticles({ limit: 50 });
+        setArticles(response.data?.articles || []);
+        
+      } catch (err) {
+        console.error('Error fetching articles:', err);
+        setError('Failed to load articles. Make sure the backend is running!');
+        setArticles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticles();
+  }, []);
 
   const categories = [
-    { name: 'ALL', color: 'from-gray-500 to-gray-600', emoji: '📚', count: ALL_ARTICLES.length },
-    { name: 'SELF-CARE', color: 'from-blue-500 to-cyan-600', emoji: '💆‍♀️', count: ALL_ARTICLES.filter(a => a.category === 'SELF-CARE').length },
-    { name: 'LEADERSHIP', color: 'from-red-500 to-red-600', emoji: '👑', count: ALL_ARTICLES.filter(a => a.category === 'LEADERSHIP').length },
-    { name: 'BUSINESS', color: 'from-purple-500 to-purple-600', emoji: '💼', count: ALL_ARTICLES.filter(a => a.category === 'BUSINESS').length },
-    { name: 'MONEY', color: 'from-green-500 to-emerald-600', emoji: '💰', count: ALL_ARTICLES.filter(a => a.category === 'MONEY').length },
-    { name: 'LIFESTYLE', color: 'from-orange-500 to-orange-600', emoji: '🌟', count: ALL_ARTICLES.filter(a => a.category === 'LIFESTYLE').length },
-    { name: 'RELATIONSHIPS', color: 'from-pink-500 to-rose-600', emoji: '❤️', count: ALL_ARTICLES.filter(a => a.category === 'RELATIONSHIPS').length },
-    { name: 'EDUCATION', color: 'from-indigo-500 to-blue-600', emoji: '📚', count: ALL_ARTICLES.filter(a => a.category === 'EDUCATION').length }
+    { name: 'ALL', color: 'from-gray-500 to-gray-600', emoji: '📚', count: articles.length },
+    { name: 'SELF-CARE', color: 'from-blue-500 to-cyan-600', emoji: '💆‍♀️', count: articles.filter(a => a.category === 'SELF-CARE').length },
+    { name: 'LEADERSHIP', color: 'from-red-500 to-red-600', emoji: '👑', count: articles.filter(a => a.category === 'LEADERSHIP').length },
+    { name: 'BUSINESS', color: 'from-purple-500 to-purple-600', emoji: '💼', count: articles.filter(a => a.category === 'BUSINESS').length },
+    { name: 'MONEY', color: 'from-green-500 to-emerald-600', emoji: '💰', count: articles.filter(a => a.category === 'MONEY').length },
+    { name: 'LIFESTYLE', color: 'from-orange-500 to-orange-600', emoji: '🌟', count: articles.filter(a => a.category === 'LIFESTYLE').length },
+    { name: 'RELATIONSHIPS', color: 'from-pink-500 to-rose-600', emoji: '❤️', count: articles.filter(a => a.category === 'RELATIONSHIPS').length },
+    { name: 'EDUCATION', color: 'from-indigo-500 to-blue-600', emoji: '📚', count: articles.filter(a => a.category === 'EDUCATION').length }
   ];
 
   // Filter articles based on category and search
-  const filteredArticles = ALL_ARTICLES.filter(article => {
+  const filteredArticles = articles.filter(article => {
     const matchesCategory = selectedCategory === 'ALL' || article.category === selectedCategory;
     const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -32,6 +57,37 @@ const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
     setCurrentArticle(article);
     setCurrentPage('article');
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="pt-20 bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-semibold">Loading articles...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="pt-20 bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-2xl mx-auto px-6">
+          <div className="text-6xl mb-6">📱</div>
+          <h2 className="text-3xl font-black text-gray-900 mb-4">Backend Connection Required</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-red-600 text-white px-6 py-3 font-bold rounded-lg hover:bg-red-700 transition-all"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-20 bg-white min-h-screen">
