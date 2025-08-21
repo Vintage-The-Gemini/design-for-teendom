@@ -1,60 +1,56 @@
 // File: frontend/src/services/adminApi.js
-// API service for admin panel functionality
+// Admin API Service for Teendom Admin Panel with Awards System
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// File: frontend/src/services/adminApi.js
+// Admin API Service for Teendom Admin Panel with Awards System
 
 class AdminApiService {
   constructor() {
-    this.baseURL = API_BASE_URL;
-    this.token = localStorage.getItem('admin_token');
+    // Use import.meta.env for Vite or fallback to localhost
+    this.baseURL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
+    this.token = localStorage.getItem('adminToken');
   }
 
-  // Set authentication token
+  // Token management
   setToken(token) {
     this.token = token;
-    localStorage.setItem('admin_token', token);
+    localStorage.setItem('adminToken', token);
   }
 
-  // Remove authentication token
+  getToken() {
+    return this.token || localStorage.getItem('adminToken');
+  }
+
   removeToken() {
     this.token = null;
-    localStorage.removeItem('admin_token');
+    localStorage.removeItem('adminToken');
   }
 
-  // Get stored token
-  getToken() {
-    return this.token || localStorage.getItem('admin_token');
-  }
-
-  // Generic request method with auth
+  // Generic request method
   async makeRequest(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const token = this.getToken();
+
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      ...options,
+    };
+
     try {
-      const url = `${this.baseURL}${endpoint}`;
-      const token = this.getToken();
-
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...options.headers,
-        },
-        ...options,
-      };
-
-      console.log(`🔐 Admin API Request: ${config.method || 'GET'} ${url}`);
-
       const response = await fetch(url, config);
       const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 401) {
           this.removeToken();
-          throw new Error('Authentication failed. Please login again.');
+          throw new Error('Session expired. Please login again.');
         }
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
 
-      console.log(`✅ Admin API Response:`, data);
       return data;
     } catch (error) {
       console.error(`❌ Admin API Error for ${endpoint}:`, error);
@@ -62,31 +58,28 @@ class AdminApiService {
     }
   }
 
-  // Form data request (for file uploads)
+  // Form data request method for file uploads
   async makeFormRequest(endpoint, formData, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const token = this.getToken();
+
+    const config = {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        // Don't set Content-Type for FormData, let browser set it with boundary
+      },
+      body: formData,
+      ...options,
+    };
+
     try {
-      const url = `${this.baseURL}${endpoint}`;
-      const token = this.getToken();
-
-      const config = {
-        method: 'POST',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...options.headers,
-        },
-        body: formData,
-        ...options,
-      };
-
-      console.log(`📤 Admin Form Request: ${config.method} ${url}`);
-
       const response = await fetch(url, config);
       const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 401) {
           this.removeToken();
-          throw new Error('Authentication failed. Please login again.');
+          throw new Error('Session expired. Please login again.');
         }
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
@@ -270,6 +263,85 @@ class AdminApiService {
     return this.makeRequest('/admin/categories/seed-defaults', {
       method: 'POST',
     });
+  }
+
+  // === AWARDS MANAGEMENT ===
+  async getAwards(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/admin/awards${queryString ? `?${queryString}` : ''}`;
+    return this.makeRequest(endpoint);
+  }
+
+  async createAward(awardData) {
+    return this.makeRequest('/admin/awards', {
+      method: 'POST',
+      body: JSON.stringify(awardData),
+    });
+  }
+
+  async updateAward(id, awardData) {
+    return this.makeRequest(`/admin/awards/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(awardData),
+    });
+  }
+
+  async deleteAward(id) {
+    return this.makeRequest(`/admin/awards/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAwardsStats() {
+    return this.makeRequest('/admin/awards/stats');
+  }
+
+  // === NOMINATIONS MANAGEMENT ===
+  async getNominations(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/admin/awards/nominations${queryString ? `?${queryString}` : ''}`;
+    return this.makeRequest(endpoint);
+  }
+
+  async getNomination(id) {
+    return this.makeRequest(`/admin/awards/nominations/${id}`);
+  }
+
+  async updateNominationStatus(id, status) {
+    return this.makeRequest(`/admin/awards/nominations/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // === JUDGES MANAGEMENT ===
+  async getJudges() {
+    return this.makeRequest('/admin/awards/judges');
+  }
+
+  async createJudge(judgeData) {
+    return this.makeRequest('/admin/awards/judges', {
+      method: 'POST',
+      body: JSON.stringify(judgeData),
+    });
+  }
+
+  async updateJudge(id, judgeData) {
+    return this.makeRequest(`/admin/awards/judges/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(judgeData),
+    });
+  }
+
+  async deleteJudge(id) {
+    return this.makeRequest(`/admin/awards/judges/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // === VOTING MANAGEMENT ===
+  async getVotingStats() {
+    return this.makeRequest('/admin/awards/voting/stats');
   }
 
   // === UTILITY ===
