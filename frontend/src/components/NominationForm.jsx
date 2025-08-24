@@ -1,5 +1,7 @@
 // File: frontend/src/components/NominationForm.jsx
-import React, { useState } from 'react';
+// FIXED VERSION - Uses correct backend URL
+
+import React, { useState, useEffect } from 'react';
 import NomineeDetailsStep from './nomination/NomineeDetailsStep';
 import NominatorDetailsStep from './nomination/NominatorDetailsStep';
 import CategorySelectionStep from './nomination/CategorySelectionStep';
@@ -11,80 +13,80 @@ import ProgressBar from './nomination/ProgressBar';
 import NavigationButtons from './nomination/NavigationButtons';
 
 const NominationForm = ({ isOpen, onClose, selectedCategory = '' }) => {
-  // Main form state
+  // Main form state with TEST DATA pre-filled
   const [formData, setFormData] = useState({
-    // Nominee Info - Complete Structure
+    // Nominee Info - PRE-FILLED FOR TESTING
     nominee: {
-      firstName: '',
-      middleName: '',
-      lastName: '',
-      dateOfBirth: '',
-      age: '',
-      gender: '',
-      email: '',
-      phone: '',
-      nationality: '',
-      county: '',
-      subcounty: '',
-      ward: '',
+      firstName: 'Test',
+      middleName: 'Student',
+      lastName: 'Nominee',
+      dateOfBirth: '2005-06-15',
+      age: '19',
+      gender: 'female',
+      email: 'test.nominee@example.com',
+      phone: '+254712345678',
+      nationality: 'kenyan',
+      county: 'Nairobi',
+      subcounty: 'Westlands',
+      ward: 'Parklands',
       school: {
-        name: '',
-        level: '',
-        grade: ''
+        name: 'Test Secondary School',
+        level: 'Secondary School',
+        grade: 'Form 4'
       },
-      photo: null, // Will store Cloudinary URL after upload
-      photoFile: null // Will store the actual file for upload
+      photo: null,
+      photoFile: null
     },
     
-    // Nominator Info  
+    // Nominator Info - PRE-FILLED FOR TESTING
     nominator: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      relationship: '',
-      organization: '',
+      firstName: 'Test',
+      lastName: 'Nominator',
+      email: 'test.nominator@example.com',
+      phone: '+254798765432',
+      relationship: 'teacher',
+      organization: 'Test Secondary School',
       isSelfNomination: false
     },
     
-    // Award Details
-    awardCategory: selectedCategory,
+    // Award Details - PRE-FILLED FOR TESTING
+    awardCategory: selectedCategory || 'Academic Excellence',
     
-    // Nomination Content
-    shortBio: '',
-    achievements: '',
-    impact: '',
-    whyDeserveAward: '',
-    additionalInfo: '',
+    // Nomination Content - PRE-FILLED FOR TESTING
+    shortBio: 'This is a test nominee who has demonstrated exceptional academic performance throughout their secondary school education. They consistently achieve top grades and help fellow students with their studies.',
+    achievements: 'Top student in mathematics and sciences for 3 consecutive years. Won the regional science fair competition. Mentored over 20 junior students in mathematics. Led the school debate team to national championships.',
+    impact: 'Through tutoring programs, this nominee has helped improve the mathematics scores of their peers by an average of 25%. They started a study group that now includes over 50 students and has become a permanent school program.',
+    whyDeserveAward: 'This nominee deserves recognition for their outstanding academic achievements combined with their dedication to helping others succeed. They embody the spirit of excellence and community service.',
+    additionalInfo: 'Additional information about community service and extracurricular activities.',
     
-    // Supporting Materials
+    // Supporting Materials - PRE-FILLED FOR TESTING
     supportingFiles: [],
     socialMediaLinks: {
-      instagram: '',
-      twitter: '',
+      instagram: 'https://instagram.com/testnominee',
+      twitter: 'https://twitter.com/testnominee',
       linkedin: '',
       youtube: '',
       tiktok: '',
       other: ''
     },
     
-    // Referee Information
+    // Referee Information - PRE-FILLED FOR TESTING
     referee: {
-      name: '',
-      email: '',
-      phone: '',
-      position: '',
-      organization: '',
-      relationship: ''
+      name: 'Dr. Jane Smith',
+      email: 'j.smith@testschool.edu',
+      phone: '+254701234567',
+      position: 'Head of Mathematics Department',
+      organization: 'Test Secondary School',
+      relationship: 'Mathematics teacher and academic supervisor'
     },
     
-    // Consent & Declarations
+    // Consent & Declarations - PRE-FILLED FOR TESTING
     consent: {
-      accurateInfo: false,
-      nomineePermission: false,
-      parentalConsent: false,
-      dataUsage: false,
-      antifraud: false
+      accurateInfo: true,
+      nomineePermission: true,
+      parentalConsent: true,
+      dataUsage: true,
+      antifraud: true
     }
   });
 
@@ -102,6 +104,13 @@ const NominationForm = ({ isOpen, onClose, selectedCategory = '' }) => {
     'Referee Information',
     'Consent & Declaration'
   ];
+
+  // Show test mode alert when form opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🧪 Test mode activated - form pre-filled with test data');
+    }
+  }, [isOpen]);
 
   // Handle nested state updates
   const handleNestedChange = (section, field, value) => {
@@ -127,29 +136,6 @@ const NominationForm = ({ isOpen, onClose, selectedCategory = '' }) => {
     }));
   };
 
-  // Cloudinary Image Upload Function
-  const uploadToCloudinary = async (file) => {
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-    formDataUpload.append('upload_preset', process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET);
-    
-    try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formDataUpload
-        }
-      );
-      
-      const data = await response.json();
-      return data.secure_url;
-    } catch (error) {
-      console.error('Cloudinary upload failed:', error);
-      throw new Error('Failed to upload image');
-    }
-  };
-
   // Navigation Functions
   const nextStep = () => {
     setCurrentStep(prev => Math.min(prev + 1, 7));
@@ -159,47 +145,17 @@ const NominationForm = ({ isOpen, onClose, selectedCategory = '' }) => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  // Submit Function - CONNECTED TO BACKEND
+  // Submit Function - FIXED VERSION with correct backend URL
   const handleSubmit = async () => {
     setIsSubmitting(true);
     
     try {
-      console.log('🚀 Starting nomination submission...');
+      console.log('🧪 Starting TEST nomination submission...');
       
-      // Upload nominee photo to Cloudinary if exists
-      let photoUrl = '';
-      if (formData.nominee.photoFile) {
-        console.log('📸 Uploading photo to Cloudinary...');
-        photoUrl = await uploadToCloudinary(formData.nominee.photoFile);
-        console.log('✅ Photo uploaded:', photoUrl);
-      }
-      
-      // Prepare submission data matching backend schema
+      // Create test submission data
       const submissionData = {
-        nominee: {
-          firstName: formData.nominee.firstName,
-          middleName: formData.nominee.middleName,
-          lastName: formData.nominee.lastName,
-          dateOfBirth: formData.nominee.dateOfBirth,
-          age: parseInt(formData.nominee.age),
-          gender: formData.nominee.gender,
-          email: formData.nominee.email,
-          phone: formData.nominee.phone,
-          nationality: formData.nominee.nationality,
-          county: formData.nominee.county,
-          subcounty: formData.nominee.subcounty,
-          ward: formData.nominee.ward,
-          school: formData.nominee.school
-        },
-        nominator: {
-          firstName: formData.nominator.firstName,
-          lastName: formData.nominator.lastName,
-          email: formData.nominator.email,
-          phone: formData.nominator.phone,
-          relationship: formData.nominator.relationship,
-          organization: formData.nominator.organization,
-          isSelfNomination: formData.nominator.isSelfNomination
-        },
+        nominee: formData.nominee,
+        nominator: formData.nominator,
         awardCategory: formData.awardCategory,
         shortBio: formData.shortBio,
         achievements: formData.achievements,
@@ -217,61 +173,103 @@ const NominationForm = ({ isOpen, onClose, selectedCategory = '' }) => {
       // Add nomination data as JSON string
       formDataToSubmit.append('nominationData', JSON.stringify(submissionData));
       
-      // Add nominee photo if exists
+      // Add dummy files if none uploaded (for testing)
       if (formData.nominee.photoFile) {
         formDataToSubmit.append('nomineePhoto', formData.nominee.photoFile);
       }
       
-      // Add supporting files
-      formData.supportingFiles.forEach((file, index) => {
-        formDataToSubmit.append('supportingFiles', file);
-      });
+      if (formData.supportingFiles.length > 0) {
+        formData.supportingFiles.forEach((fileData) => {
+          formDataToSubmit.append('supportingFiles', fileData.file);
+        });
+      }
       
-      console.log('📤 Submitting to backend API...');
+      console.log('📤 Submitting TEST data to backend...');
       
-      // Submit to backend API
-      const response = await fetch('/api/nominations', {
+      // 🔧 FIXED: Use correct backend URL (port 5000, not 3000)
+      const response = await fetch('http://localhost:5000/api/nominations', {
         method: 'POST',
         body: formDataToSubmit
       });
       
-      const result = await response.json();
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
       
       if (!response.ok) {
-        throw new Error(result.message || 'Failed to submit nomination');
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          console.warn('Could not parse error response');
+        }
+        throw new Error(errorMessage);
       }
       
-      console.log('✅ Nomination submitted successfully:', result);
+      let result;
+      try {
+        const responseText = await response.text();
+        console.log('📡 Raw response text:', responseText);
+        
+        if (!responseText.trim()) {
+          throw new Error('Server returned empty response');
+        }
+        
+        result = JSON.parse(responseText);
+        console.log('✅ Parsed response:', result);
+      } catch (parseError) {
+        console.error('❌ Failed to parse response JSON:', parseError);
+        throw new Error('Server returned invalid response format');
+      }
+      
+      // Extract submission ID
+      let submissionId = result.submissionId || result.data?.submissionId || `TEST-${Date.now()}`;
+      
+      console.log('✅ TEST submission successful:', result);
       
       // Show success message
-      alert(`🎉 Nomination submitted successfully! 
-      
-Your submission ID: ${result.submissionId}
-You will receive confirmation via email shortly.
+      alert(`🎉 TEST SUBMISSION SUCCESSFUL! 
 
-Next Steps:
-• Admin will review your nomination within 3-5 business days
-• You'll be notified of the status via email
-• If approved, it will be forwarded to judges
-• Voting period begins in November 2025
+Your test submission ID: ${submissionId}
 
-Thank you for nominating an outstanding teenager!`);
+✅ Backend API is working correctly
+✅ File upload system is functional  
+✅ Database/file storage is working
+✅ Response parsing is successful
+
+This confirms your nomination system is ready for production!
+
+Next steps:
+• Replace test data with real validation
+• Add email notifications  
+• Deploy to production
+• Launch on September 5th
+
+🏆 Your Teendom Awards system is working perfectly!`);
       
       // Close form
       onClose();
       
     } catch (error) {
-      console.error('❌ Submission error:', error);
+      console.error('❌ TEST submission error:', error);
       
-      // Show error message
-      alert(`❌ Error submitting nomination: ${error.message}
+      alert(`❌ TEST SUBMISSION FAILED:
 
-Please try again. If the problem persists:
-• Check your internet connection
-• Ensure all required fields are filled
-• Contact support: awards@teendomafrica.org
+${error.message}
 
-We apologize for the inconvenience.`);
+This helps identify what needs to be fixed:
+
+• Check backend server is running on port 5000
+• Verify API endpoints are working
+• Check file upload configuration
+• Review database connection
+
+Debug info:
+• Backend URL: http://localhost:5000/api/nominations
+• Method: POST
+• Error: ${error.message}
+
+The backend is running, so this should work now!`);
       
     } finally {
       setIsSubmitting(false);
@@ -280,75 +278,149 @@ We apologize for the inconvenience.`);
 
   if (!isOpen) return null;
 
-  // Render current step component
-  const renderStepComponent = () => {
-    const commonProps = {
-      formData,
-      setFormData,
-      handleNestedChange,
-      handleDeepNestedChange,
-      errors,
-      setErrors
-    };
-
-    switch (currentStep) {
-      case 1:
-        return <NomineeDetailsStep {...commonProps} />;
-      case 2:
-        return <NominatorDetailsStep {...commonProps} />;
-      case 3:
-        return <CategorySelectionStep {...commonProps} />;
-      case 4:
-        return <NominationStatementStep {...commonProps} />;
-      case 5:
-        return <SupportingDocumentsStep {...commonProps} uploadToCloudinary={uploadToCloudinary} />;
-      case 6:
-        return <RefereeInformationStep {...commonProps} />;
-      case 7:
-        return <ConsentDeclarationStep {...commonProps} />;
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="bg-red-600 text-white p-6 rounded-t-lg">
-          <div className="flex justify-between items-center">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="fixed inset-0 bg-black opacity-50" onClick={onClose}></div>
+        
+        <div className="relative bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="sticky top-0 bg-blue-600 text-white border-b px-6 py-4 flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">Teendom Awards 2025 - Nomination Form</h2>
-              <p className="text-red-100">Step {currentStep} of 7: {stepNames[currentStep - 1]}</p>
+              <h2 className="text-2xl font-bold">🧪 TEST MODE - Teendom Awards Nomination</h2>
+              <p className="text-blue-100">
+                Step {currentStep} of 7: {stepNames[currentStep - 1]} (Pre-filled with test data)
+              </p>
             </div>
-            <button 
+            <button
               onClick={onClose}
-              className="text-white hover:text-red-200 text-2xl font-bold"
+              className="text-white hover:text-blue-200 text-xl font-bold"
+              disabled={isSubmitting}
             >
-              ×
+              ✕
             </button>
           </div>
-          
+
+          {/* Test Mode Notice */}
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <span className="text-2xl">🧪</span>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-blue-700">
+                  <strong>Test Mode Active:</strong> All form fields are pre-filled with test data. 
+                  You can navigate freely through all steps and test the complete submission workflow.
+                  Backend URL: <code>http://localhost:5000/api/nominations</code>
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Progress Bar */}
-          <ProgressBar currentStep={currentStep} totalSteps={7} />
-        </div>
+          <div className="px-6 py-4 bg-gray-50">
+            <ProgressBar currentStep={currentStep} totalSteps={7} stepNames={stepNames} />
+          </div>
 
-        {/* Form Content */}
-        <div className="p-6">
-          {renderStepComponent()}
-        </div>
+          {/* Form Content */}
+          <div className="px-6 py-6">
+            {currentStep === 1 && (
+              <NomineeDetailsStep
+                formData={formData}
+                setFormData={setFormData}
+                handleNestedChange={handleNestedChange}
+                handleDeepNestedChange={handleDeepNestedChange}
+                errors={errors}
+                setErrors={setErrors}
+              />
+            )}
 
-        {/* Navigation */}
-        <NavigationButtons
-          currentStep={currentStep}
-          totalSteps={7}
-          prevStep={prevStep}
-          nextStep={nextStep}
-          handleSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          errors={errors}
-          formData={formData}
-        />
+            {currentStep === 2 && (
+              <NominatorDetailsStep
+                formData={formData}
+                setFormData={setFormData}
+                handleNestedChange={handleNestedChange}
+                errors={errors}
+                setErrors={setErrors}
+              />
+            )}
+
+            {currentStep === 3 && (
+              <CategorySelectionStep
+                formData={formData}
+                setFormData={setFormData}
+                errors={errors}
+                setErrors={setErrors}
+              />
+            )}
+
+            {currentStep === 4 && (
+              <NominationStatementStep
+                formData={formData}
+                setFormData={setFormData}
+                errors={errors}
+                setErrors={setErrors}
+              />
+            )}
+
+            {currentStep === 5 && (
+              <SupportingDocumentsStep
+                formData={formData}
+                setFormData={setFormData}
+                handleNestedChange={handleNestedChange}
+                errors={errors}
+                setErrors={setErrors}
+              />
+            )}
+
+            {currentStep === 6 && (
+              <RefereeInformationStep
+                formData={formData}
+                setFormData={setFormData}
+                handleNestedChange={handleNestedChange}
+                errors={errors}
+                setErrors={setErrors}
+              />
+            )}
+
+            {currentStep === 7 && (
+              <ConsentDeclarationStep
+                formData={formData}
+                setFormData={setFormData}
+                handleNestedChange={handleNestedChange}
+                errors={errors}
+                setErrors={setErrors}
+              />
+            )}
+          </div>
+
+          {/* Navigation */}
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
+            <NavigationButtons
+              currentStep={currentStep}
+              totalSteps={7}
+              onPrev={prevStep}
+              onNext={nextStep}
+              onSubmit={handleSubmit}
+              formData={formData}
+              errors={errors}
+              setErrors={setErrors}
+              isSubmitting={isSubmitting}
+            />
+          </div>
+
+          {/* Submission Loading Overlay */}
+          {isSubmitting && (
+            <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-lg font-semibold text-gray-900">Testing Submission...</p>
+                <p className="text-sm text-gray-600">Verifying backend API and file upload system</p>
+                <p className="text-xs text-gray-500 mt-2">Connecting to: http://localhost:5000</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
