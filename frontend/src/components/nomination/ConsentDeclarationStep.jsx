@@ -3,239 +3,204 @@ import React from 'react';
 
 const ConsentDeclarationStep = ({ 
   formData, 
+  setFormData, 
   handleNestedChange, 
-  errors 
+  errors, 
+  setErrors 
 }) => {
-  const isNomineeUnder18 = parseInt(formData.nominee.age) < 18;
 
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-bold mb-4 text-red-600">📋 Consent & Declaration</h3>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h4 className="text-blue-800 font-semibold mb-2">📄 Legal Requirements:</h4>
-        <p className="text-sm text-blue-700">
-          Before submitting your nomination, please read and agree to the following declarations. 
-          All items marked with * are required for submission.
-        </p>
+      <div className="text-center mb-6">
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">✅ Consent & Declarations</h3>
+        <p className="text-gray-600">Please read and agree to the following terms and conditions</p>
       </div>
 
-      {/* Nomination Summary */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h4 className="text-gray-800 font-semibold mb-3">📊 Nomination Summary</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p><strong>Nominee:</strong> {formData.nominee.firstName} {formData.nominee.lastName}</p>
-            <p><strong>Age:</strong> {formData.nominee.age} years old</p>
-            <p><strong>Category:</strong> {formData.awardCategory}</p>
-            <p><strong>County:</strong> {formData.nominee.county}</p>
-          </div>
-          <div>
-            <p><strong>Nominator:</strong> {formData.nominator.firstName} {formData.nominator.lastName}</p>
-            <p><strong>Relationship:</strong> {formData.nominator.relationship}</p>
-            <p><strong>Self-nomination:</strong> {formData.nominator.isSelfNomination ? 'Yes' : 'No'}</p>
-            <p><strong>Referee:</strong> {formData.referee.name}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Required Consents */}
+      {/* Legal Declarations */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">Required Agreements *</h4>
+        <h4 className="text-lg font-semibold text-gray-700">📜 Required Declarations</h4>
         
-        {/* Information Accuracy */}
-        <div className="border border-gray-300 rounded-lg p-4">
-          <label className="flex items-start space-x-3 cursor-pointer">
+        {/* Accurate Information */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <label className="flex items-start space-x-3">
             <input
               type="checkbox"
-              checked={formData.consent.accurateInfo || false}
+              checked={formData.consent?.accurateInfo || false}
               onChange={(e) => handleNestedChange('consent', 'accurateInfo', e.target.checked)}
-              className="mt-1 w-4 h-4 text-red-600"
+              className="mt-1 h-5 w-5 text-red-500 rounded focus:ring-2 focus:ring-red-500"
               required
             />
-            <div className="flex-1">
-              <span className="text-sm font-medium">
-                Information Accuracy Declaration *
-              </span>
-              <p className="text-xs text-gray-600 mt-1">
-                I declare that all information provided in this nomination is accurate, truthful, and complete to the best of my knowledge. 
+            <div>
+              <span className="font-semibold text-gray-800">Accuracy Declaration *</span>
+              <p className="text-sm text-gray-600 mt-1">
+                I declare that all information provided in this nomination is true, accurate, and complete to the best of my knowledge. 
                 I understand that providing false information may result in disqualification.
               </p>
             </div>
           </label>
-          {errors.accurateInfo && (
-            <p className="text-red-500 text-xs mt-2">{errors.accurateInfo}</p>
-          )}
         </div>
-
-        {/* Nominee Permission */}
-        <div className="border border-gray-300 rounded-lg p-4">
-          <label className="flex items-start space-x-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.consent.nomineePermission || false}
-              onChange={(e) => handleNestedChange('consent', 'nomineePermission', e.target.checked)}
-              className="mt-1 w-4 h-4 text-red-600"
-              required
-            />
-            <div className="flex-1">
-              <span className="text-sm font-medium">
-                Nominee Permission *
-              </span>
-              <p className="text-xs text-gray-600 mt-1">
-                {formData.nominator.isSelfNomination 
-                  ? "I give permission for my nomination to be processed and for my information to be used in the Teendom Awards 2025."
-                  : "I confirm that I have obtained permission from the nominee to submit this nomination on their behalf."
-                }
-              </p>
-            </div>
-          </label>
-          {errors.nomineePermission && (
-            <p className="text-red-500 text-xs mt-2">{errors.nomineePermission}</p>
-          )}
-        </div>
-
-        {/* Parental Consent (if under 18) */}
-        {isNomineeUnder18 && (
-          <div className="border border-red-300 rounded-lg p-4 bg-red-50">
-            <label className="flex items-start space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.consent.parentalConsent || false}
-                onChange={(e) => handleNestedChange('consent', 'parentalConsent', e.target.checked)}
-                className="mt-1 w-4 h-4 text-red-600"
-                required
-              />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-red-700">
-                  Parental/Guardian Consent * (Required for nominees under 18)
-                </span>
-                <p className="text-xs text-red-600 mt-1">
-                  As the parent/guardian of the nominee, or as someone with proper authority, I give consent for this minor's 
-                  participation in the Teendom Awards 2025. I understand their information may be used for award purposes 
-                  and promotional materials if they become a finalist or winner.
-                </p>
-              </div>
-            </label>
-            {errors.parentalConsent && (
-              <p className="text-red-500 text-xs mt-2">{errors.parentalConsent}</p>
-            )}
-          </div>
-        )}
 
         {/* Data Usage Consent */}
-        <div className="border border-gray-300 rounded-lg p-4">
-          <label className="flex items-start space-x-3 cursor-pointer">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <label className="flex items-start space-x-3">
             <input
               type="checkbox"
-              checked={formData.consent.dataUsage || false}
+              checked={formData.consent?.dataUsage || false}
               onChange={(e) => handleNestedChange('consent', 'dataUsage', e.target.checked)}
-              className="mt-1 w-4 h-4 text-red-600"
+              className="mt-1 h-5 w-5 text-red-500 rounded focus:ring-2 focus:ring-red-500"
               required
             />
-            <div className="flex-1">
-              <span className="text-sm font-medium">
-                Data Usage Agreement *
-              </span>
-              <p className="text-xs text-gray-600 mt-1">
-                I consent to Teendom Africa using the nominee's information, photos, and achievements for the purposes of 
-                the awards program, including judging, finalist announcements, and promotional materials. 
-                I understand that personal data will be handled in accordance with data protection principles.
+            <div>
+              <span className="font-semibold text-gray-800">Data Usage Consent *</span>
+              <p className="text-sm text-gray-600 mt-1">
+                I consent to the collection, processing, and storage of the provided information for the purposes of the Teendom Awards. 
+                This includes sharing nomination details with judges and administrators as necessary for the evaluation process.
               </p>
             </div>
           </label>
-          {errors.dataUsage && (
-            <p className="text-red-500 text-xs mt-2">{errors.dataUsage}</p>
-          )}
         </div>
 
-        {/* Anti-fraud Declaration */}
-        <div className="border border-gray-300 rounded-lg p-4">
-          <label className="flex items-start space-x-3 cursor-pointer">
+        {/* Public Recognition Consent */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <label className="flex items-start space-x-3">
             <input
               type="checkbox"
-              checked={formData.consent.antifraud || false}
-              onChange={(e) => handleNestedChange('consent', 'antifraud', e.target.checked)}
-              className="mt-1 w-4 h-4 text-red-600"
+              checked={formData.consent?.publicRecognition || false}
+              onChange={(e) => handleNestedChange('consent', 'publicRecognition', e.target.checked)}
+              className="mt-1 h-5 w-5 text-red-500 rounded focus:ring-2 focus:ring-red-500"
               required
             />
-            <div className="flex-1">
-              <span className="text-sm font-medium">
-                Anti-fraud Declaration *
-              </span>
-              <p className="text-xs text-gray-600 mt-1">
-                I declare that this nomination is genuine and submitted in good faith. I understand that fraudulent 
-                nominations, vote manipulation, or any other dishonest practices will result in immediate disqualification 
-                and may be reported to relevant authorities.
+            <div>
+              <span className="font-semibold text-gray-800">Public Recognition Consent *</span>
+              <p className="text-sm text-gray-600 mt-1">
+                I consent to the nominee's name, photo, and achievements being published on the Teendom website, social media, 
+                and other promotional materials if they become a finalist or winner.
               </p>
             </div>
           </label>
-          {errors.antifraud && (
-            <p className="text-red-500 text-xs mt-2">{errors.antifraud}</p>
-          )}
+        </div>
+
+        {/* Background Check Consent */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <label className="flex items-start space-x-3">
+            <input
+              type="checkbox"
+              checked={formData.consent?.backgroundCheck || false}
+              onChange={(e) => handleNestedChange('consent', 'backgroundCheck', e.target.checked)}
+              className="mt-1 h-5 w-5 text-red-500 rounded focus:ring-2 focus:ring-red-500"
+              required
+            />
+            <div>
+              <span className="font-semibold text-gray-800">Background Verification Consent *</span>
+              <p className="text-sm text-gray-600 mt-1">
+                I consent to Teendom conducting reasonable background checks and verification of the achievements 
+                and information provided in this nomination.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* CRITICAL: Nominee Permission Consent - THIS WAS MISSING! */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <label className="flex items-start space-x-3">
+            <input
+              type="checkbox"
+              checked={formData.consent?.nomineePermission || false}
+              onChange={(e) => handleNestedChange('consent', 'nomineePermission', e.target.checked)}
+              className="mt-1 h-5 w-5 text-red-500 rounded focus:ring-2 focus:ring-red-500"
+              required
+            />
+            <div>
+              <span className="font-semibold text-gray-800">Nominee Permission Consent *</span>
+              <p className="text-sm text-gray-600 mt-1">
+                I confirm that I have the nominee's permission to submit this nomination, and that the nominee 
+                is aware of and consents to being nominated for this award.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* Anti-Fraud Declaration */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <label className="flex items-start space-x-3">
+            <input
+              type="checkbox"
+              checked={formData.consent?.antifraud || false}
+              onChange={(e) => handleNestedChange('consent', 'antifraud', e.target.checked)}
+              className="mt-1 h-5 w-5 text-red-500 rounded focus:ring-2 focus:ring-red-500"
+              required
+            />
+            <div>
+              <span className="font-semibold text-gray-800">Anti-Fraud Declaration *</span>
+              <p className="text-sm text-gray-600 mt-1">
+                I declare that this nomination is submitted in good faith and is not part of any fraudulent, 
+                malicious, or coordinated effort to manipulate the awards process.
+              </p>
+            </div>
+          </label>
         </div>
       </div>
 
-      {/* Additional Terms */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h5 className="font-semibold text-yellow-800 mb-2">📋 Additional Terms & Conditions:</h5>
-        <ul className="text-sm text-yellow-700 space-y-1">
-          <li>• Nominations will be reviewed by our admin team within 3-5 business days</li>
-          <li>• Only complete and eligible nominations will be forwarded to judges</li>
-          <li>• The judging process is confidential and decisions are final</li>
-          <li>• Finalists will be contacted directly and may be asked for additional information</li>
-          <li>• Winners will be announced at the awards ceremony on December 6, 2025</li>
-          <li>• Teendom Africa reserves the right to use winner information for promotional purposes</li>
-          <li>• No cash prizes are awarded - recognition is the primary reward</li>
-        </ul>
+      {/* Terms and Conditions */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h5 className="font-semibold text-gray-800 mb-3">📄 Terms and Conditions Summary:</h5>
+        <div className="text-sm text-gray-600 space-y-2">
+          <p><strong>Submission:</strong> By submitting this form, you acknowledge that you have read and agree to the Teendom Awards terms and conditions.</p>
+          <p><strong>Evaluation:</strong> All nominations will be reviewed by a panel of qualified judges. Their decisions are final.</p>
+          <p><strong>Timeline:</strong> The evaluation process may take several weeks. You will be notified of the outcome via email.</p>
+          <p><strong>Contact:</strong> You may be contacted for additional information or clarification during the review process.</p>
+          <p><strong>Awards Ceremony:</strong> Finalists and winners will be invited to attend the awards ceremony in December 2025.</p>
+        </div>
+      </div>
+
+      {/* Final Validation Summary */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h5 className="font-semibold text-blue-800 mb-2">📊 Consent Status:</h5>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+          <div className={`flex items-center space-x-2 ${formData.consent?.accurateInfo ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.consent?.accurateInfo ? '✅' : '❌'}</span>
+            <span>Accuracy Declaration</span>
+          </div>
+          <div className={`flex items-center space-x-2 ${formData.consent?.dataUsage ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.consent?.dataUsage ? '✅' : '❌'}</span>
+            <span>Data Usage Consent</span>
+          </div>
+          <div className={`flex items-center space-x-2 ${formData.consent?.publicRecognition ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.consent?.publicRecognition ? '✅' : '❌'}</span>
+            <span>Public Recognition</span>
+          </div>
+          <div className={`flex items-center space-x-2 ${formData.consent?.backgroundCheck ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.consent?.backgroundCheck ? '✅' : '❌'}</span>
+            <span>Background Check</span>
+          </div>
+          <div className={`flex items-center space-x-2 ${formData.consent?.nomineePermission ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.consent?.nomineePermission ? '✅' : '❌'}</span>
+            <span>Nominee Permission</span>
+          </div>
+          <div className={`flex items-center space-x-2 ${formData.consent?.antifraud ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.consent?.antifraud ? '✅' : '❌'}</span>
+            <span>Anti-Fraud Declaration</span>
+          </div>
+        </div>
+        
+        {/* Show submission readiness */}
+        <div className="mt-3 pt-3 border-t border-blue-200">
+          {Object.values(formData.consent || {}).every(value => value === true) ? (
+            <p className="text-green-600 font-semibold">🎉 All consent requirements completed - Ready to submit!</p>
+          ) : (
+            <p className="text-red-500 font-semibold">⚠️ Please complete all required consent declarations</p>
+          )}
+        </div>
       </div>
 
       {/* Contact Information */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h5 className="font-semibold text-gray-700 mb-2">📞 Questions or Concerns?</h5>
-        <p className="text-sm text-gray-600 mb-2">
-          If you have any questions about these terms or the nomination process, please contact us:
-        </p>
-        <ul className="text-sm text-gray-600 space-y-1">
-          <li>• Email: <a href="mailto:awards@teendomafrica.org" className="text-red-600 hover:underline">awards@teendomafrica.org</a></li>
-          <li>• WhatsApp: <a href="https://wa.me/254742862080" className="text-red-600 hover:underline">0742 862 080</a></li>
-          <li>• Website: <a href="https://teendomafrica.org/awards" className="text-red-600 hover:underline">teendomafrica.org/awards</a></li>
-        </ul>
-      </div>
-
-      {/* Submission Confirmation */}
       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h4 className="text-green-800 font-semibold mb-2">🚀 Ready to Submit?</h4>
-        <p className="text-sm text-green-700 mb-3">
-          By clicking "Submit Nomination" below, you confirm that:
+        <h5 className="font-semibold text-green-800 mb-2">📞 Need Help?</h5>
+        <p className="text-sm text-green-700">
+          If you have questions about this nomination or the terms and conditions, 
+          please contact us at <strong>awards@teendom.co.ke</strong> or call <strong>+254 XXX XXX XXX</strong>.
         </p>
-        <ul className="text-sm text-green-700 space-y-1">
-          <li>✓ All information provided is accurate and complete</li>
-          <li>✓ You have obtained all necessary permissions</li>
-          <li>✓ You agree to all terms and conditions</li>
-          <li>✓ You understand the nomination and judging process</li>
-        </ul>
-        
-        {isNomineeUnder18 && (
-          <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded">
-            <p className="text-xs text-red-700 font-medium">
-              ⚠️ Special Note: This nomination is for a minor (under 18). Parental consent is required above.
-            </p>
-          </div>
-        )}
       </div>
-
-      {/* Validation Summary */}
-      {Object.keys(errors).length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h4 className="text-red-800 font-semibold mb-2">❌ Please Complete Required Items:</h4>
-          <ul className="text-sm text-red-600 space-y-1">
-            {Object.entries(errors).map(([key, message]) => (
-              <li key={key}>• {message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 };

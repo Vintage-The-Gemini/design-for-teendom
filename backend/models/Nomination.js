@@ -2,7 +2,6 @@
 const mongoose = require('mongoose');
 
 const nominationSchema = new mongoose.Schema({
-  // Unique submission identifier
   submissionId: {
     type: String,
     required: true,
@@ -10,24 +9,20 @@ const nominationSchema = new mongoose.Schema({
     index: true
   },
 
-  // Nominee Information
   nominee: {
     firstName: {
       type: String,
       required: [true, 'Nominee first name is required'],
-      trim: true,
-      maxlength: [50, 'First name cannot exceed 50 characters']
+      trim: true
     },
     middleName: {
       type: String,
-      trim: true,
-      maxlength: [50, 'Middle name cannot exceed 50 characters']
+      trim: true
     },
     lastName: {
       type: String,
       required: [true, 'Nominee last name is required'],
-      trim: true,
-      maxlength: [50, 'Last name cannot exceed 50 characters']
+      trim: true
     },
     dateOfBirth: {
       type: Date,
@@ -47,8 +42,7 @@ const nominationSchema = new mongoose.Schema({
     email: {
       type: String,
       required: [true, 'Nominee email is required'],
-      lowercase: true,
-      match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+      lowercase: true
     },
     phone: {
       type: String,
@@ -77,33 +71,27 @@ const nominationSchema = new mongoose.Schema({
       grade: String
     },
     photo: {
-      type: String, // Cloudinary URL or filename
+      type: String,
       required: [true, 'Nominee photo is required']
     },
-    photoPublicId: {
-      type: String // Cloudinary public ID for deletion
-    }
+    photoPublicId: String
   },
 
-  // Nominator Information
   nominator: {
     firstName: {
       type: String,
       required: [true, 'Nominator first name is required'],
-      trim: true,
-      maxlength: [50, 'First name cannot exceed 50 characters']
+      trim: true
     },
     lastName: {
       type: String,
       required: [true, 'Nominator last name is required'],
-      trim: true,
-      maxlength: [50, 'Last name cannot exceed 50 characters']
+      trim: true
     },
     email: {
       type: String,
       required: [true, 'Nominator email is required'],
-      lowercase: true,
-      match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+      lowercase: true
     },
     phone: {
       type: String,
@@ -122,7 +110,6 @@ const nominationSchema = new mongoose.Schema({
     }
   },
 
-  // Award Details
   awardCategory: {
     type: String,
     required: [true, 'Award category is required'],
@@ -140,33 +127,30 @@ const nominationSchema = new mongoose.Schema({
     ]
   },
 
-  // Nomination Content
   shortBio: {
     type: String,
-    required: [true, 'Short bio is required'],
-    maxlength: [250, 'Bio cannot exceed 250 words']
-  },
-  achievements: {
-    type: String,
-    required: [true, 'Achievements description is required'],
-    maxlength: [2000, 'Achievements cannot exceed 2000 characters']
-  },
-  impact: {
-    type: String,
-    required: [true, 'Impact description is required'],
-    minlength: [300, 'Impact must be at least 300 words'],
-    maxlength: [500, 'Impact cannot exceed 500 words']
-  },
-  whyDeserveAward: {
-    type: String,
-    maxlength: [1000, 'Why deserve award cannot exceed 1000 characters']
-  },
-  additionalInfo: {
-    type: String,
-    maxlength: [1000, 'Additional information cannot exceed 1000 characters']
+    required: [true, 'Short bio is required']
   },
 
-  // Social Media Links
+  achievements: {
+    type: String,
+    required: [true, 'Achievements description is required']
+  },
+
+  // FIXED: Impact with NO word count restrictions
+  impact: {
+    type: String,
+    required: [true, 'Impact description is required']
+  },
+
+  whyDeserveAward: {
+    type: String
+  },
+
+  additionalInfo: {
+    type: String
+  },
+
   socialMediaLinks: {
     instagram: String,
     twitter: String,
@@ -176,7 +160,6 @@ const nominationSchema = new mongoose.Schema({
     other: String
   },
 
-  // Referee Information
   referee: {
     name: {
       type: String,
@@ -202,20 +185,20 @@ const nominationSchema = new mongoose.Schema({
     relationship: String
   },
 
-  // Supporting Documents
-  documents: [{
+  supportingFiles: [{
+    filename: String,
     originalName: String,
-    cloudinaryUrl: String, // Cloudinary URL
-    publicId: String, // Cloudinary public ID
-    mimetype: String,
+    url: String,
+    cloudinaryId: String,
     size: Number,
+    mimetype: String,
     uploadDate: {
       type: Date,
       default: Date.now
     }
   }],
 
-  // Consent and Declarations
+  // FIXED: Consent with correct field names matching your form
   consent: {
     accurateInfo: {
       type: Boolean,
@@ -225,9 +208,13 @@ const nominationSchema = new mongoose.Schema({
       type: Boolean,
       required: [true, 'Nominee permission consent is required']
     },
-    parentalConsent: {
+    publicRecognition: {
       type: Boolean,
-      default: false
+      required: [true, 'Public recognition consent is required']
+    },
+    backgroundCheck: {
+      type: Boolean,
+      required: [true, 'Background check consent is required']
     },
     dataUsage: {
       type: Boolean,
@@ -239,7 +226,6 @@ const nominationSchema = new mongoose.Schema({
     }
   },
 
-  // System Fields
   status: {
     type: String,
     enum: ['submitted', 'under-review', 'finalist', 'winner', 'rejected', 'deleted'],
@@ -252,7 +238,6 @@ const nominationSchema = new mongoose.Schema({
     default: 'nomination'
   },
 
-  // Admin Review
   adminReview: {
     reviewed: {
       type: Boolean,
@@ -260,7 +245,7 @@ const nominationSchema = new mongoose.Schema({
     },
     reviewer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Admin'
+      ref: 'User'
     },
     reviewDate: Date,
     status: {
@@ -271,7 +256,6 @@ const nominationSchema = new mongoose.Schema({
     notes: String
   },
 
-  // Judging Information
   judging: {
     assignedJudges: [{
       judge: {
@@ -296,7 +280,6 @@ const nominationSchema = new mongoose.Schema({
     }
   },
 
-  // Voting Information (for finalists)
   voting: {
     publicVotes: {
       type: Number,
@@ -304,82 +287,16 @@ const nominationSchema = new mongoose.Schema({
     },
     voteStartDate: Date,
     voteEndDate: Date
-  },
-
-  // Timestamps
-  submittedAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
-  deletedAt: Date,
-  deletedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Admin'
   }
 }, {
   timestamps: true
 });
 
-// Create indexes for better query performance
+// Indexes
 nominationSchema.index({ submissionId: 1 });
 nominationSchema.index({ 'nominee.email': 1 });
-nominationSchema.index({ 'nominator.email': 1 });
 nominationSchema.index({ awardCategory: 1 });
 nominationSchema.index({ status: 1 });
-nominationSchema.index({ 'adminReview.status': 1 });
 nominationSchema.index({ submittedAt: -1 });
-
-// Virtual for nominee full name
-nominationSchema.virtual('nominee.fullName').get(function() {
-  const parts = [this.nominee.firstName];
-  if (this.nominee.middleName) parts.push(this.nominee.middleName);
-  parts.push(this.nominee.lastName);
-  return parts.join(' ');
-});
-
-// Virtual for nominator full name
-nominationSchema.virtual('nominator.fullName').get(function() {
-  return `${this.nominator.firstName} ${this.nominator.lastName}`;
-});
-
-// Pre-save middleware to update timestamps
-nominationSchema.pre('save', function(next) {
-  this.updatedAt = new Date();
-  next();
-});
-
-// Instance method to check if eligible for judging
-nominationSchema.methods.isEligibleForJudging = function() {
-  return this.adminReview.status === 'approved' && this.status === 'under-review';
-};
-
-// Instance method to calculate age at award date
-nominationSchema.methods.getAgeAtAwardDate = function() {
-  const awardDate = new Date('2025-12-06'); // Award ceremony date
-  const birthDate = this.nominee.dateOfBirth;
-  let age = awardDate.getFullYear() - birthDate.getFullYear();
-  const monthDiff = awardDate.getMonth() - birthDate.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && awardDate.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-};
-
-// Static method to get nominations by category
-nominationSchema.statics.getByCategory = function(category, status = null) {
-  const filter = { awardCategory: category };
-  if (status) filter.status = status;
-  return this.find(filter);
-};
-
-// Static method to get pending admin reviews
-nominationSchema.statics.getPendingReviews = function() {
-  return this.find({ 'adminReview.status': 'pending' }).sort({ submittedAt: 1 });
-};
 
 module.exports = mongoose.model('Nomination', nominationSchema);

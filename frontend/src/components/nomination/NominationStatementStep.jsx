@@ -1,234 +1,278 @@
 // File: frontend/src/components/nomination/NominationStatementStep.jsx
 import React, { useState, useEffect } from 'react';
 
-const NominationStatementStep = ({ 
-  formData, 
-  setFormData,
-  errors 
-}) => {
-  const [wordCounts, setWordCounts] = useState({
-    shortBio: 0,
-    achievements: 0,
-    impact: 0,
-    whyDeserveAward: 0,
-    additionalInfo: 0
-  });
+const NominationStatementStep = ({ formData, setFormData, errors, setErrors }) => {
+  // Word count states
+  const [shortBioWordCount, setShortBioWordCount] = useState(0);
+  const [achievementsWordCount, setAchievementsWordCount] = useState(0);
+  const [impactWordCount, setImpactWordCount] = useState(0);
+  const [whyDeserveWordCount, setWhyDeserveWordCount] = useState(0);
+  const [additionalInfoWordCount, setAdditionalInfoWordCount] = useState(0);
 
-  // Count words in text
+  // Count words function
   const countWords = (text) => {
+    if (!text) return 0;
     return text.trim().split(/\s+/).filter(word => word.length > 0).length;
   };
 
-  // Update word counts when form data changes
+  // Update word counts when content changes
   useEffect(() => {
-    setWordCounts({
-      shortBio: countWords(formData.shortBio || ''),
-      achievements: countWords(formData.achievements || ''),
-      impact: countWords(formData.impact || ''),
-      whyDeserveAward: countWords(formData.whyDeserveAward || ''),
-      additionalInfo: countWords(formData.additionalInfo || '')
-    });
+    setShortBioWordCount(countWords(formData.shortBio));
+    setAchievementsWordCount(countWords(formData.achievements));
+    setImpactWordCount(countWords(formData.impact));
+    setWhyDeserveWordCount(countWords(formData.whyDeserveAward));
+    setAdditionalInfoWordCount(countWords(formData.additionalInfo));
   }, [formData.shortBio, formData.achievements, formData.impact, formData.whyDeserveAward, formData.additionalInfo]);
 
-  const handleChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  // Handle text area changes with real-time word counting
+  const handleTextChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear any existing errors for this field
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: null }));
+    }
+  };
+
+  // Get word count status (color and text)
+  const getWordCountStatus = (current, min, max) => {
+    if (min && current < min) {
+      return { color: 'text-red-500', text: `Minimum ${min} words required` };
+    } else if (max && current > max) {
+      return { color: 'text-red-500', text: `Maximum ${max} words exceeded` };
+    } else if (min && current >= min) {
+      return { color: 'text-green-500', text: 'Good length' };
+    }
+    return { color: 'text-gray-500', text: 'Optional' };
   };
 
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-bold mb-4 text-red-600">📝 Nomination Statement</h3>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h4 className="text-blue-800 font-semibold mb-2">✍️ Writing Tips:</h4>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• Be specific with examples and achievements</li>
-          <li>• Use concrete numbers and measurable results where possible</li>
-          <li>• Focus on impact and how the nominee made a difference</li>
-          <li>• Write in a compelling but factual manner</li>
-          <li>• Proofread for grammar and spelling</li>
-        </ul>
+      <div className="text-center mb-6">
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">📝 Nomination Statements</h3>
+        <p className="text-gray-600">Please provide detailed information about the nominee's achievements and impact</p>
       </div>
 
       {/* Short Bio */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <label className="block text-sm font-bold">Short Bio (Maximum 250 words) *</label>
-          <span className={`text-xs ${
-            wordCounts.shortBio > 250 ? 'text-red-600 font-bold' : 'text-gray-500'
-          }`}>
-            {wordCounts.shortBio}/250 words
-          </span>
-        </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-bold mb-2">
+          📋 Short Bio * (Max 250 words)
+        </label>
         <textarea
-          required
-          rows={4}
           value={formData.shortBio || ''}
-          onChange={(e) => handleChange('shortBio', e.target.value)}
-          className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none ${
-            errors.shortBio || wordCounts.shortBio > 250 ? 'border-red-500' : 'border-gray-300'
-          }`}
-          placeholder="Provide a brief introduction to the nominee - who they are, their background, and what makes them special..."
+          onChange={(e) => handleTextChange('shortBio', e.target.value)}
+          className="w-full h-24 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none"
+          placeholder="Provide a brief overview of the nominee (who they are, their background, current status)"
+          maxLength={1500}
+          required
         />
-        {(errors.shortBio || wordCounts.shortBio > 250) && (
-          <p className="text-red-500 text-xs">
-            {errors.shortBio || 'Bio exceeds 250 word limit'}
-          </p>
-        )}
-        <p className="text-xs text-gray-500">
-          Brief background about the nominee - their interests, personality, and what drives them.
-        </p>
+        <div className="flex justify-between text-sm">
+          <span className={getWordCountStatus(shortBioWordCount, null, 250).color}>
+            {shortBioWordCount} words - {getWordCountStatus(shortBioWordCount, null, 250).text}
+          </span>
+          <span className="text-gray-400">Character limit: 1500</span>
+        </div>
       </div>
 
       {/* Achievements */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <label className="block text-sm font-bold">Key Achievements *</label>
-          <span className="text-xs text-gray-500">{wordCounts.achievements} words</span>
-        </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-bold mb-2">
+          🏆 Key Achievements *
+        </label>
         <textarea
-          required
-          rows={5}
           value={formData.achievements || ''}
-          onChange={(e) => handleChange('achievements', e.target.value)}
-          className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none ${
-            errors.achievements ? 'border-red-500' : 'border-gray-300'
-          }`}
-          placeholder="List and describe the nominee's key achievements relevant to the selected category. Include specific examples, dates, and any recognition received..."
+          onChange={(e) => handleTextChange('achievements', e.target.value)}
+          className="w-full h-32 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none"
+          placeholder="List the nominee's key achievements, awards, recognitions, and accomplishments relevant to the award category"
+          required
         />
-        {errors.achievements && (
-          <p className="text-red-500 text-xs">{errors.achievements}</p>
-        )}
-        <p className="text-xs text-gray-500">
-          Specific accomplishments, awards, recognition, competitions won, projects completed, etc.
-        </p>
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">{achievementsWordCount} words</span>
+          <span className="text-gray-400">Be specific and include dates where possible</span>
+        </div>
       </div>
 
-      {/* Impact Statement */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <label className="block text-sm font-bold">Impact & Influence (300-500 words) *</label>
-          <span className={`text-xs ${
-            wordCounts.impact < 300 || wordCounts.impact > 500 ? 'text-red-600 font-bold' : 'text-green-600'
-          }`}>
-            {wordCounts.impact}/300-500 words
-          </span>
-        </div>
+      {/* Impact Statement - CRITICAL: 300+ words required by database */}
+      <div className="space-y-2">
+        <label className="block text-sm font-bold mb-2">
+          💥 Impact Statement * (Minimum 300 words)
+        </label>
         <textarea
-          required
-          rows={6}
           value={formData.impact || ''}
-          onChange={(e) => handleChange('impact', e.target.value)}
-          className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none ${
-            errors.impact || wordCounts.impact < 300 || wordCounts.impact > 500 ? 'border-red-500' : 'border-gray-300'
-          }`}
-          placeholder="Describe the nominee's impact on their community, school, peers, or society. How have they made a difference? What positive changes have they brought about? Include specific examples and testimonials if available..."
+          onChange={(e) => handleTextChange('impact', e.target.value)}
+          className="w-full h-40 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none"
+          placeholder="Describe the specific impact the nominee has made in their community, school, or field. Include concrete examples, numbers, and measurable outcomes where possible."
+          required
         />
-        {(errors.impact || wordCounts.impact < 300 || wordCounts.impact > 500) && (
-          <p className="text-red-500 text-xs">
-            {errors.impact || 
-             (wordCounts.impact < 300 ? 'Impact statement must be at least 300 words' : 
-              'Impact statement must not exceed 500 words')}
-          </p>
+        <div className="flex justify-between text-sm">
+          <span className={getWordCountStatus(impactWordCount, 300, null).color}>
+            {impactWordCount} words - {getWordCountStatus(impactWordCount, 300, null).text}
+          </span>
+          <span className="text-gray-400">Be detailed and specific</span>
+        </div>
+        {impactWordCount < 300 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-red-700 text-sm">
+              ⚠️ This field requires at least 300 words. Currently: {impactWordCount} words. 
+              Please provide more detailed information about the nominee's impact.
+            </p>
+          </div>
         )}
-        <p className="text-xs text-gray-500">
-          This is the most important section. Describe how the nominee has made a positive difference and influenced others.
-        </p>
       </div>
 
       {/* Why Deserve Award */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <label className="block text-sm font-bold">Why They Deserve This Award (Optional)</label>
-          <span className="text-xs text-gray-500">{wordCounts.whyDeserveAward} words</span>
-        </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-bold mb-2">
+          ⭐ Why Does This Person Deserve This Award? *
+        </label>
         <textarea
-          rows={4}
           value={formData.whyDeserveAward || ''}
-          onChange={(e) => handleChange('whyDeserveAward', e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none"
-          placeholder="Explain why this nominee stands out and deserves recognition. What makes them exceptional compared to their peers?..."
+          onChange={(e) => handleTextChange('whyDeserveAward', e.target.value)}
+          className="w-full h-32 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none"
+          placeholder="Explain why this nominee deserves this specific award. What makes them stand out from other potential nominees?"
+          required
         />
-        <p className="text-xs text-gray-500">
-          Additional compelling reasons why the nominee should be recognized with this award.
-        </p>
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">{whyDeserveWordCount} words</span>
+          <span className="text-gray-400">Connect achievements to award criteria</span>
+        </div>
       </div>
 
       {/* Additional Information */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <label className="block text-sm font-bold">Additional Information (Optional)</label>
-          <span className="text-xs text-gray-500">{wordCounts.additionalInfo} words</span>
-        </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-bold mb-2">
+          📄 Additional Information (Optional)
+        </label>
         <textarea
-          rows={3}
           value={formData.additionalInfo || ''}
-          onChange={(e) => handleChange('additionalInfo', e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none"
-          placeholder="Any other relevant information, future goals, challenges overcome, or unique circumstances..."
+          onChange={(e) => handleTextChange('additionalInfo', e.target.value)}
+          className="w-full h-24 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 resize-none"
+          placeholder="Any additional information that supports this nomination (community service, leadership roles, special circumstances, etc.)"
         />
-        <p className="text-xs text-gray-500">
-          Any other relevant details that would help the judges understand the nominee better.
-        </p>
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">{additionalInfoWordCount} words</span>
+          <span className="text-gray-400">Optional but helpful</span>
+        </div>
+      </div>
+
+      {/* Social Media Links */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-semibold text-gray-700">🔗 Social Media Links (Optional)</h4>
+        <p className="text-sm text-gray-600">Provide links to the nominee's social media profiles if relevant to their achievements</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold mb-2">Twitter/X</label>
+            <input
+              type="url"
+              value={formData.socialMediaLinks?.twitter || ''}
+              onChange={(e) => handleTextChange('socialMediaLinks', {
+                ...formData.socialMediaLinks,
+                twitter: e.target.value
+              })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="https://twitter.com/username"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-bold mb-2">Instagram</label>
+            <input
+              type="url"
+              value={formData.socialMediaLinks?.instagram || ''}
+              onChange={(e) => handleTextChange('socialMediaLinks', {
+                ...formData.socialMediaLinks,
+                instagram: e.target.value
+              })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="https://instagram.com/username"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-bold mb-2">Facebook</label>
+            <input
+              type="url"
+              value={formData.socialMediaLinks?.facebook || ''}
+              onChange={(e) => handleTextChange('socialMediaLinks', {
+                ...formData.socialMediaLinks,
+                facebook: e.target.value
+              })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="https://facebook.com/username"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-bold mb-2">LinkedIn</label>
+            <input
+              type="url"
+              value={formData.socialMediaLinks?.linkedin || ''}
+              onChange={(e) => handleTextChange('socialMediaLinks', {
+                ...formData.socialMediaLinks,
+                linkedin: e.target.value
+              })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="https://linkedin.com/in/username"
+            />
+          </div>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-bold mb-2">Other Links</label>
+          <input
+            type="url"
+            value={formData.socialMediaLinks?.other || ''}
+            onChange={(e) => handleTextChange('socialMediaLinks', {
+              ...formData.socialMediaLinks,
+              other: e.target.value
+            })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+            placeholder="Any other relevant website or profile"
+          />
+        </div>
       </div>
 
       {/* Writing Guidelines */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h5 className="font-semibold text-yellow-800 mb-2">📋 Writing Guidelines:</h5>
-        <ul className="text-sm text-yellow-700 space-y-1">
-          <li>• <strong>Be Specific:</strong> Use concrete examples rather than general statements</li>
-          <li>• <strong>Show Impact:</strong> Explain how actions led to positive outcomes</li>
-          <li>• <strong>Use Numbers:</strong> Include statistics, quantities, or measurable results</li>
-          <li>• <strong>Tell Stories:</strong> Narrative examples are more compelling than lists</li>
-          <li>• <strong>Stay Relevant:</strong> Focus on achievements related to your selected category</li>
-          <li>• <strong>Be Honest:</strong> Provide accurate information that can be verified</li>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h5 className="font-semibold text-blue-800 mb-2">✍️ Writing Guidelines:</h5>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• <strong>Be specific:</strong> Include dates, numbers, and concrete examples</li>
+          <li>• <strong>Focus on impact:</strong> How did their actions benefit others or create change?</li>
+          <li>• <strong>Use active voice:</strong> "She organized..." rather than "An event was organized..."</li>
+          <li>• <strong>Quantify when possible:</strong> "Improved test scores by 15%" vs "Improved test scores"</li>
+          <li>• <strong>Stay relevant:</strong> Focus on achievements related to the selected award category</li>
+          <li>• <strong>Impact statement is crucial:</strong> This carries significant weight in judging</li>
         </ul>
       </div>
 
-      {/* Sample Phrases */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h5 className="font-semibold text-green-800 mb-2">💡 Strong Impact Phrases:</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-green-700">
-          <div>
-            <p>• "Increased participation by X%"</p>
-            <p>• "Raised KSh X for charity"</p>
-            <p>• "Mentored X students"</p>
-            <p>• "Led a team of X people"</p>
+      {/* Validation Summary */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h5 className="font-semibold text-gray-800 mb-2">📊 Section Status:</h5>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+          <div className={`flex items-center space-x-2 ${formData.shortBio ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.shortBio ? '✅' : '❌'}</span>
+            <span>Short Bio</span>
           </div>
-          <div>
-            <p>• "Organized an event for X participants"</p>
-            <p>• "Improved performance from X to Y"</p>
-            <p>• "Created a solution that helped X people"</p>
-            <p>• "Achieved top X% in competition"</p>
+          <div className={`flex items-center space-x-2 ${formData.achievements ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.achievements ? '✅' : '❌'}</span>
+            <span>Achievements</span>
           </div>
-        </div>
-      </div>
-
-      {/* Progress Indicator */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-        <h5 className="font-semibold text-gray-700 mb-2">📊 Completion Status:</h5>
-        <div className="space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span>Key Achievements:</span>
-            <span className={wordCounts.achievements > 0 ? 'text-green-600' : 'text-red-600'}>
-              {wordCounts.achievements > 0 ? '✅ Complete' : '❌ Required'}
-            </span>
+          <div className={`flex items-center space-x-2 ${impactWordCount >= 300 ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{impactWordCount >= 300 ? '✅' : '❌'}</span>
+            <span>Impact (300+ words)</span>
           </div>
-          <div className="flex justify-between">
-            <span>Impact Statement:</span>
-            <span className={wordCounts.impact >= 300 && wordCounts.impact <= 500 ? 'text-green-600' : 'text-red-600'}>
-              {wordCounts.impact >= 300 && wordCounts.impact <= 500 ? '✅ Complete' : '❌ Required (300-500 words)'}
-            </span>
+          <div className={`flex items-center space-x-2 ${formData.whyDeserveAward ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{formData.whyDeserveAward ? '✅' : '❌'}</span>
+            <span>Why Deserve</span>
           </div>
-          <div className="flex justify-between">
-            <span>Why Deserve Award:</span>
-            <span className="text-gray-500">Optional</span>
+          <div className={`flex items-center space-x-2 text-green-600`}>
+            <span>✅</span>
+            <span>Additional Info</span>
           </div>
-          <div className="flex justify-between">
-            <span>Additional Info:</span>
-            <span className="text-gray-500">Optional</span>
+          <div className={`flex items-center space-x-2 text-green-600`}>
+            <span>✅</span>
+            <span>Social Media</span>
           </div>
         </div>
       </div>

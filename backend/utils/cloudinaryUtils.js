@@ -230,7 +230,7 @@ const cleanupFiles = async (publicIds) => {
       total: publicIds.length,
       successful,
       failed,
-      results-
+      results
     };
   } catch (error) {
     throw new Error(`Failed to cleanup files: ${error.message}`);
