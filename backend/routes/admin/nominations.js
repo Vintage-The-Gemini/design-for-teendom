@@ -1,14 +1,15 @@
 // File: backend/routes/admin/nominations.js
 const express = require('express');
 const Nomination = require('../../models/Nomination');
-const { adminAuth } = require('../../middleware/auth');
-const { sendStatusUpdateEmail } = require('../../utils/emailService');
+const { protect, editorAccess, adminOnly } = require('../../middleware/auth');
+
 const router = express.Router();
 
-// Apply admin authentication to all routes
-router.use(adminAuth);
+// Apply authentication to all routes
+router.use(protect);
+router.use(editorAccess);
 
-// Get all nominations with filtering and pagination
+// GET /api/admin/nominations - Get all nominations with filtering and pagination
 router.get('/', async (req, res) => {
   try {
     const {
@@ -22,121 +23,198 @@ router.get('/', async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
+    console.log('📊 Admin nominations query:', req.query);
+
     // Build filter object
     const filter = {};
     
-    if (status) filter.status = status;
-    if (category) filter.awardCategory = category;
-    if (adminStatus) filter['adminReview.status'] = adminStatus;
+    if (status && status !== 'all') filter.status = status;
+    if (category && category !== 'all') filter.awardCategory = category;
+    if (adminStatus && adminStatus !== 'all') filter['adminReview.status'] = adminStatus;
     
     // Search functionality
     if (search) {
       filter.$or = [
         { 'nominee.firstName': { $regex: search, $options: 'i' } },
         { 'nominee.lastName': { $regex: search, $options: 'i' } },
+        { 'nominee.email': { $regex: search, $options: 'i' } },
         { 'nominator.firstName': { $regex: search, $options: 'i' } },
         { 'nominator.lastName': { $regex: search, $options: 'i' } },
+        { 'nominator.email': { $regex: search, $options: 'i' } },
         { submissionId: { $regex: search, $options: 'i' } }
       ];
     }
 
+    // Sort options
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
     // Execute query with pagination
-    const nominations = await Nomination.find(filter)
-      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .select('-documents.data') // Exclude large file data from list view
-      .exec();
-
-    // Get total count for pagination
-    const total = await Nomination.countDocuments(filter);
-
-    // Get statistics
-    const stats = await Nomination.aggregate([
-      {
-        $group: {
-          _id: '$adminReview.status',
-          count: { $sum: 1 }
-        }
-      }
+    const skip = (page - 1) * parseInt(limit);
+    
+    const [nominations, totalCount] = await Promise.all([
+      Nomination.find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('adminReview.reviewer', 'name email')
+        .lean(),
+      Nomination.countDocuments(filter)
     ]);
 
-    const categoryStats = await Nomination.aggregate([
-      {
-        $group: {
-          _id: '$awardCategory',
-          count: { $sum: 1 }
-        }
-      }
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    // Get statistics for dashboard
+    const [statusStats, categoryStats] = await Promise.all([
+      Nomination.aggregate([
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      Nomination.aggregate([
+        { $group: { _id: '$awardCategory', count: { $sum: 1 } } }
+      ])
     ]);
 
     res.json({
-      success: true,
-      nominations,
+      status: 'success',
+      results: nominations.length,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalItems: total,
-        itemsPerPage: parseInt(limit)
+        totalPages,
+        totalCount,
+        hasNextPage,
+        hasPrevPage,
+        limit: parseInt(limit)
       },
       statistics: {
-        statusCounts: stats.reduce((acc, stat) => {
+        byStatus: statusStats.reduce((acc, stat) => {
           acc[stat._id] = stat.count;
           return acc;
         }, {}),
-        categoryCounts: categoryStats.reduce((acc, stat) => {
+        byCategory: categoryStats.reduce((acc, stat) => {
           acc[stat._id] = stat.count;
           return acc;
         }, {})
+      },
+      data: {
+        nominations
       }
     });
-
   } catch (error) {
-    console.error('Error fetching nominations:', error);
+    console.error('Admin get nominations error:', error);
     res.status(500).json({
-      success: false,
+      status: 'error',
       message: 'Failed to fetch nominations'
     });
   }
 });
 
-// Get single nomination details
+// GET /api/admin/nominations/stats - Get nominations statistics for dashboard
+router.get('/stats', async (req, res) => {
+  try {
+    const [
+      totalNominations,
+      pendingNominations,
+      approvedNominations,
+      rejectedNominations,
+      recentNominations,
+      categoryStats
+    ] = await Promise.all([
+      Nomination.countDocuments(),
+      Nomination.countDocuments({ 'adminReview.status': 'pending' }),
+      Nomination.countDocuments({ 'adminReview.status': 'approved' }),
+      Nomination.countDocuments({ 'adminReview.status': 'rejected' }),
+      Nomination.find()
+        .sort({ submittedAt: -1 })
+        .limit(5)
+        .select('submissionId nominee.firstName nominee.lastName awardCategory submittedAt adminReview.status')
+        .lean(),
+      Nomination.aggregate([
+        { $group: { _id: '$awardCategory', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ])
+    ]);
+
+    res.json({
+      status: 'success',
+      data: {
+        overview: {
+          total: totalNominations,
+          pending: pendingNominations,
+          approved: approvedNominations,
+          rejected: rejectedNominations
+        },
+        recent: recentNominations,
+        categoryBreakdown: categoryStats
+      }
+    });
+  } catch (error) {
+    console.error('Nominations stats error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch nominations statistics'
+    });
+  }
+});
+
+// GET /api/admin/nominations/:id - Get single nomination details
 router.get('/:id', async (req, res) => {
   try {
-    const nomination = await Nomination.findById(req.params.id);
+    const nomination = await Nomination.findById(req.params.id)
+      .populate('adminReview.reviewer', 'name email')
+      .lean();
     
     if (!nomination) {
       return res.status(404).json({
-        success: false,
+        status: 'error',
         message: 'Nomination not found'
       });
     }
 
     res.json({
-      success: true,
-      nomination
+      status: 'success',
+      data: {
+        nomination
+      }
     });
-
   } catch (error) {
-    console.error('Error fetching nomination:', error);
+    console.error('Admin get nomination error:', error);
+    
+    // Handle invalid ObjectId
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid nomination ID'
+      });
+    }
+    
     res.status(500).json({
-      success: false,
+      status: 'error',
       message: 'Failed to fetch nomination details'
     });
   }
 });
 
-// Update nomination admin review status
-router.patch('/:id/review', async (req, res) => {
+// PATCH /api/admin/nominations/:id/status - Update nomination review status
+router.patch('/:id/status', async (req, res) => {
   try {
-    const { status, notes, sendEmail = true } = req.body;
-    const adminId = req.admin.id;
+    const { status, notes, sendNotification = true } = req.body;
+    const validStatuses = ['pending', 'approved', 'rejected', 'needs-info'];
     
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
     const nomination = await Nomination.findById(req.params.id);
     
     if (!nomination) {
       return res.status(404).json({
-        success: false,
+        status: 'error',
         message: 'Nomination not found'
       });
     }
@@ -144,232 +222,210 @@ router.patch('/:id/review', async (req, res) => {
     // Update admin review
     nomination.adminReview = {
       reviewed: true,
-      reviewer: adminId,
+      reviewer: req.user._id,
       reviewDate: new Date(),
-      status: status, // approved, rejected, needs-info
+      status: status,
       notes: notes || ''
     };
 
-    // Update main status if approved
-    if (status === 'approved') {
-      nomination.status = 'under-review'; // Ready for judges
+    // Update main status based on admin decision
+    switch (status) {
+      case 'approved':
+        nomination.status = 'under-review';
+        nomination.phase = 'judging';
+        break;
+      case 'rejected':
+        nomination.status = 'rejected';
+        break;
+      case 'needs-info':
+        nomination.status = 'submitted'; // Keep as submitted but flag for info
+        break;
+      default:
+        nomination.status = 'submitted';
     }
 
     await nomination.save();
 
-    // Send status update email if requested
-    if (sendEmail) {
-      try {
-        await sendStatusUpdateEmail({
-          to: nomination.nominator.email,
-          nomineeFirstName: nomination.nominee.firstName,
-          nomineeLastName: nomination.nominee.lastName,
-          submissionId: nomination.submissionId,
-          status: status,
-          notes: notes
-        });
-      } catch (emailError) {
-        console.error('Failed to send status update email:', emailError);
-      }
+    // TODO: Send email notification if requested
+    if (sendNotification) {
+      console.log('📧 Email notification requested for:', nomination.nominator.email);
+      // Implement email service here
     }
 
     res.json({
-      success: true,
-      message: 'Nomination review updated successfully',
-      nomination: {
-        id: nomination._id,
-        submissionId: nomination.submissionId,
-        status: nomination.status,
-        adminReview: nomination.adminReview
+      status: 'success',
+      message: `Nomination ${status} successfully`,
+      data: {
+        nomination: {
+          _id: nomination._id,
+          submissionId: nomination.submissionId,
+          status: nomination.status,
+          adminReview: nomination.adminReview
+        }
       }
     });
 
   } catch (error) {
-    console.error('Error updating nomination review:', error);
+    console.error('Update nomination status error:', error);
     res.status(500).json({
-      success: false,
-      message: 'Failed to update nomination review'
+      status: 'error',
+      message: 'Failed to update nomination status'
     });
   }
 });
 
-// Bulk approve nominations
-router.post('/bulk-approve', async (req, res) => {
+// POST /api/admin/nominations/bulk-action - Bulk actions on nominations
+router.post('/bulk-action', adminOnly, async (req, res) => {
   try {
-    const { nominationIds, notes = '' } = req.body;
-    const adminId = req.admin.id;
-
-    if (!nominationIds || !Array.isArray(nominationIds)) {
+    const { nominationIds, action, notes = '', sendNotifications = true } = req.body;
+    
+    if (!nominationIds || !Array.isArray(nominationIds) || nominationIds.length === 0) {
       return res.status(400).json({
-        success: false,
+        status: 'error',
         message: 'Valid nomination IDs array is required'
       });
     }
 
-    const updateResult = await Nomination.updateMany(
-      { _id: { $in: nominationIds } },
-      {
-        $set: {
-          'adminReview.reviewed': true,
-          'adminReview.reviewer': adminId,
-          'adminReview.reviewDate': new Date(),
-          'adminReview.status': 'approved',
-          'adminReview.notes': notes,
-          'status': 'under-review'
-        }
-      }
-    );
-
-    res.json({
-      success: true,
-      message: `${updateResult.modifiedCount} nominations approved successfully`,
-      modifiedCount: updateResult.modifiedCount
-    });
-
-  } catch (error) {
-    console.error('Error bulk approving nominations:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to bulk approve nominations'
-    });
-  }
-});
-
-// Export nominations for judges (by category)
-router.get('/export/:category', async (req, res) => {
-  try {
-    const { category } = req.params;
-    
-    const nominations = await Nomination.find({
-      awardCategory: category,
-      'adminReview.status': 'approved',
-      status: 'under-review'
-    }).select('-documents -adminReview -__v');
-
-    if (nominations.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No approved nominations found for this category'
+    const validActions = ['approve', 'reject', 'delete'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Invalid action. Must be one of: ${validActions.join(', ')}`
       });
     }
 
+    let updateData = {};
+    let statusMessage = '';
+
+    switch (action) {
+      case 'approve':
+        updateData = {
+          'adminReview.reviewed': true,
+          'adminReview.reviewer': req.user._id,
+          'adminReview.reviewDate': new Date(),
+          'adminReview.status': 'approved',
+          'adminReview.notes': notes,
+          'status': 'under-review',
+          'phase': 'judging'
+        };
+        statusMessage = 'approved';
+        break;
+      case 'reject':
+        updateData = {
+          'adminReview.reviewed': true,
+          'adminReview.reviewer': req.user._id,
+          'adminReview.reviewDate': new Date(),
+          'adminReview.status': 'rejected',
+          'adminReview.notes': notes,
+          'status': 'rejected'
+        };
+        statusMessage = 'rejected';
+        break;
+      case 'delete':
+        const deleteResult = await Nomination.deleteMany({ _id: { $in: nominationIds } });
+        return res.json({
+          status: 'success',
+          message: `Successfully deleted ${deleteResult.deletedCount} nominations`,
+          data: { deletedCount: deleteResult.deletedCount }
+        });
+    }
+
+    const updateResult = await Nomination.updateMany(
+      { _id: { $in: nominationIds } },
+      { $set: updateData }
+    );
+
+    // TODO: Send bulk email notifications if requested
+    if (sendNotifications && action !== 'delete') {
+      console.log(`📧 Bulk email notifications requested for ${nominationIds.length} nominations`);
+      // Implement bulk email service here
+    }
+
     res.json({
-      success: true,
-      category,
-      count: nominations.length,
-      nominations,
-      exportDate: new Date(),
-      instructions: {
-        judging: 'Please review each nomination and score based on the provided criteria',
-        deadline: 'November 5, 2025',
-        contact: 'awards@teendomafrica.org'
+      status: 'success',
+      message: `Successfully ${statusMessage} ${updateResult.modifiedCount} nominations`,
+      data: {
+        modifiedCount: updateResult.modifiedCount,
+        action: action
       }
     });
 
   } catch (error) {
-    console.error('Error exporting nominations:', error);
+    console.error('Bulk action error:', error);
     res.status(500).json({
-      success: false,
-      message: 'Failed to export nominations'
+      status: 'error',
+      message: 'Failed to perform bulk action'
     });
   }
 });
 
-// Get nomination statistics for dashboard
-router.get('/stats/dashboard', async (req, res) => {
-  try {
-    const stats = await Promise.all([
-      // Total nominations
-      Nomination.countDocuments(),
-      
-      // By status
-      Nomination.aggregate([
-        {
-          $group: {
-            _id: '$adminReview.status',
-            count: { $sum: 1 }
-          }
-        }
-      ]),
-      
-      // By category
-      Nomination.aggregate([
-        {
-          $group: {
-            _id: '$awardCategory',
-            count: { $sum: 1 }
-          }
-        }
-      ]),
-      
-      // Recent submissions (last 7 days)
-      Nomination.countDocuments({
-        submittedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
-      }),
-      
-      // Pending reviews
-      Nomination.countDocuments({
-        'adminReview.status': 'pending'
-      })
-    ]);
-
-    const [total, statusStats, categoryStats, recent, pending] = stats;
-
-    res.json({
-      success: true,
-      dashboard: {
-        totalNominations: total,
-        recentSubmissions: recent,
-        pendingReviews: pending,
-        statusDistribution: statusStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {}),
-        categoryDistribution: categoryStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {})
-      }
-    });
-
-  } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch dashboard statistics'
-    });
-  }
-});
-
-// Delete nomination (soft delete)
-router.delete('/:id', async (req, res) => {
+// DELETE /api/admin/nominations/:id - Delete single nomination
+router.delete('/:id', adminOnly, async (req, res) => {
   try {
     const nomination = await Nomination.findById(req.params.id);
     
     if (!nomination) {
       return res.status(404).json({
-        success: false,
+        status: 'error',
         message: 'Nomination not found'
       });
     }
 
-    // Soft delete by updating status
-    nomination.status = 'deleted';
-    nomination.deletedAt = new Date();
-    nomination.deletedBy = req.admin.id;
-    
-    await nomination.save();
+    // TODO: Delete associated files from storage
+    console.log('🗑️ TODO: Delete files for nomination:', nomination.submissionId);
+
+    await Nomination.findByIdAndDelete(req.params.id);
 
     res.json({
-      success: true,
+      status: 'success',
       message: 'Nomination deleted successfully'
     });
 
   } catch (error) {
-    console.error('Error deleting nomination:', error);
+    console.error('Delete nomination error:', error);
     res.status(500).json({
-      success: false,
+      status: 'error',
       message: 'Failed to delete nomination'
+    });
+  }
+});
+
+// GET /api/admin/nominations/:id/files - Get nomination file URLs
+router.get('/:id/files', async (req, res) => {
+  try {
+    const nomination = await Nomination.findById(req.params.id).select('files submissionId').lean();
+    
+    if (!nomination) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Nomination not found'
+      });
+    }
+
+    const files = {
+      photo: nomination.files?.photo ? {
+        url: `${req.protocol}://${req.get('host')}${nomination.files.photo.url}`,
+        filename: nomination.files.photo.filename,
+        size: nomination.files.photo.size
+      } : null,
+      supportingFiles: nomination.files?.supportingFiles?.map(file => ({
+        url: `${req.protocol}://${req.get('host')}${file.url}`,
+        filename: file.filename,
+        size: file.size,
+        mimetype: file.mimetype
+      })) || []
+    };
+
+    res.json({
+      status: 'success',
+      data: { files }
+    });
+
+  } catch (error) {
+    console.error('Get nomination files error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch nomination files'
     });
   }
 });

@@ -1,14 +1,18 @@
 // File: frontend/src/services/adminApi.js
-// Admin API Service for Teendom Admin Panel with Awards System
-
-// File: frontend/src/services/adminApi.js
-// Admin API Service for Teendom Admin Panel with Awards System
+// FIXED: Uses your existing environment variables
 
 class AdminApiService {
   constructor() {
-    // Use import.meta.env for Vite or fallback to localhost
-    this.baseURL = import.meta.env?.VITE_API_URL || 'http://localhost:5000/api';
+    // FIXED: Use your existing REACT_APP_API_URL and add /api
+    const baseUrl = import.meta.env?.VITE_API_URL || 
+                   import.meta.env?.REACT_APP_API_URL || 
+                   'http://localhost:5000';
+    
+    // Ensure we have /api at the end
+    this.baseURL = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
     this.token = localStorage.getItem('adminToken');
+    
+    console.log('🔗 AdminAPI initialized with baseURL:', this.baseURL);
   }
 
   // Token management
@@ -39,6 +43,8 @@ class AdminApiService {
       ...options,
     };
 
+    console.log(`🌐 Making request to: ${url}`);
+
     try {
       const response = await fetch(url, config);
       const data = await response.json();
@@ -48,7 +54,7 @@ class AdminApiService {
           this.removeToken();
           throw new Error('Session expired. Please login again.');
         }
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        throw new Error(data.message || `Route ${endpoint} not found`);
       }
 
       return data;
@@ -299,19 +305,49 @@ class AdminApiService {
   // === NOMINATIONS MANAGEMENT ===
   async getNominations(params = {}) {
     const queryString = new URLSearchParams(params).toString();
-    const endpoint = `/admin/awards/nominations${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/admin/nominations${queryString ? `?${queryString}` : ''}`;
     return this.makeRequest(endpoint);
   }
 
   async getNomination(id) {
-    return this.makeRequest(`/admin/awards/nominations/${id}`);
+    return this.makeRequest(`/admin/nominations/${id}`);
   }
 
-  async updateNominationStatus(id, status) {
-    return this.makeRequest(`/admin/awards/nominations/${id}/status`, {
-      method: 'PUT',
-      body: JSON.stringify({ status }),
+  async updateNominationStatus(id, status, notes = '', sendNotification = true) {
+    return this.makeRequest(`/admin/nominations/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ 
+        status, 
+        notes, 
+        sendNotification 
+      }),
     });
+  }
+
+  async bulkNominationAction(nominationIds, action, notes = '', sendNotifications = true) {
+    return this.makeRequest('/admin/nominations/bulk-action', {
+      method: 'POST',
+      body: JSON.stringify({
+        nominationIds,
+        action,
+        notes,
+        sendNotifications
+      }),
+    });
+  }
+
+  async deleteNomination(id) {
+    return this.makeRequest(`/admin/nominations/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getNominationFiles(id) {
+    return this.makeRequest(`/admin/nominations/${id}/files`);
+  }
+
+  async getNominationStats() {
+    return this.makeRequest('/admin/nominations/stats');
   }
 
   // === JUDGES MANAGEMENT ===

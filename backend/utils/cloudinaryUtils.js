@@ -9,6 +9,58 @@ cloudinary.config({
 });
 
 /**
+ * Test Cloudinary connection and configuration
+ * @returns {Promise<Object>} - Connection test result
+ */
+const testCloudinaryConnection = async () => {
+  try {
+    console.log('🔍 Testing Cloudinary connection...');
+    console.log('📋 Config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing',
+      api_key: process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing'
+    });
+
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      throw new Error('Missing Cloudinary credentials in environment variables');
+    }
+
+    // Test the connection by fetching account details
+    const result = await cloudinary.api.ping();
+    
+    console.log('✅ Cloudinary connection successful:', result);
+    return {
+      success: true,
+      message: 'Cloudinary connected successfully',
+      status: result.status || 'ok'
+    };
+  } catch (error) {
+    console.error('❌ Cloudinary connection failed:', error.message);
+    return {
+      success: false,
+      message: error.message,
+      error: error
+    };
+  }
+};
+
+/**
+ * Get Cloudinary configuration status
+ * @returns {Object} - Configuration status
+ */
+const getCloudinaryStatus = () => {
+  const hasCredentials = !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+  
+  return {
+    configured: hasCredentials,
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'Not set',
+    api_key: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Not set',
+    api_secret: process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Not set',
+    ready: hasCredentials
+  };
+};
+
+/**
  * Upload a file to Cloudinary
  * @param {Object} file - The file object from multer
  * @param {String} folder - Cloudinary folder name
@@ -17,6 +69,18 @@ cloudinary.config({
  */
 const uploadToCloudinary = async (file, folder = 'teendom-awards', options = {}) => {
   try {
+    // Check if Cloudinary is properly configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      throw new Error('Cloudinary not configured - missing environment variables');
+    }
+
+    console.log('☁️ Starting Cloudinary upload...', {
+      file: file.filename,
+      size: file.size,
+      mimetype: file.mimetype,
+      folder: folder
+    });
+
     const defaultOptions = {
       folder: folder,
       resource_type: 'auto', // Automatically detect file type
@@ -57,6 +121,13 @@ const uploadToCloudinary = async (file, folder = 'teendom-awards', options = {})
 
     const result = await cloudinary.uploader.upload(file.path, defaultOptions);
     
+    console.log('✅ Cloudinary upload successful:', {
+      public_id: result.public_id,
+      url: result.secure_url,
+      format: result.format,
+      bytes: result.bytes
+    });
+
     return {
       success: true,
       url: result.secure_url,
@@ -66,10 +137,11 @@ const uploadToCloudinary = async (file, folder = 'teendom-awards', options = {})
       bytes: result.bytes,
       width: result.width,
       height: result.height,
-      createdAt: result.created_at
+      createdAt: result.created_at,
+      cloudinary: true // Mark as uploaded to Cloudinary
     };
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    console.error('❌ Cloudinary upload error:', error);
     throw new Error(`Failed to upload to Cloudinary: ${error.message}`);
   }
 };
@@ -162,6 +234,7 @@ const getImageVariations = (publicId) => {
  */
 const uploadNomineePhoto = async (file, nomineeId) => {
   try {
+    console.log('📸 Uploading nominee photo to Cloudinary...');
     const uploadResult = await uploadToCloudinary(file, 'teendom-awards/nominees', {
       public_id: `nominee-${nomineeId}-${Date.now()}`,
       transformation: [
@@ -183,6 +256,7 @@ const uploadNomineePhoto = async (file, nomineeId) => {
       variations
     };
   } catch (error) {
+    console.error('❌ Failed to upload nominee photo:', error.message);
     throw new Error(`Failed to upload nominee photo: ${error.message}`);
   }
 };
@@ -196,6 +270,7 @@ const uploadNomineePhoto = async (file, nomineeId) => {
  */
 const uploadSupportingDocument = async (file, nomineeId, index) => {
   try {
+    console.log(`📁 Uploading supporting document ${index + 1} to Cloudinary...`);
     const folder = file.mimetype.startsWith('image/') 
       ? 'teendom-awards/supporting-images'
       : file.mimetype.startsWith('video/')
@@ -203,47 +278,23 @@ const uploadSupportingDocument = async (file, nomineeId, index) => {
       : 'teendom-awards/supporting-documents';
 
     const uploadResult = await uploadToCloudinary(file, folder, {
-      public_id: `${nomineeId}-supporting-${index}-${Date.now()}`
+      public_id: `supporting-${nomineeId}-${index}-${Date.now()}`
     });
 
     return uploadResult;
   } catch (error) {
+    console.error(`❌ Failed to upload supporting document ${index + 1}:`, error.message);
     throw new Error(`Failed to upload supporting document: ${error.message}`);
   }
 };
 
-/**
- * Cleanup old files (for maintenance)
- * @param {Array} publicIds - Array of public IDs to delete
- * @returns {Promise<Object>} - Cleanup results
- */
-const cleanupFiles = async (publicIds) => {
-  try {
-    const results = await Promise.allSettled(
-      publicIds.map(publicId => deleteFromCloudinary(publicId))
-    );
-
-    const successful = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
-
-    return {
-      total: publicIds.length,
-      successful,
-      failed,
-      results
-    };
-  } catch (error) {
-    throw new Error(`Failed to cleanup files: ${error.message}`);
-  }
-};
-
 module.exports = {
-  cloudinary,
+  testCloudinaryConnection,
+  getCloudinaryStatus,
   uploadToCloudinary,
   deleteFromCloudinary,
   getOptimizedImageUrl,
   getImageVariations,
   uploadNomineePhoto,
-  uploadSupportingDocument,
-  cleanupFiles
+  uploadSupportingDocument
 };
