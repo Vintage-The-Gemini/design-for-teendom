@@ -1,39 +1,34 @@
 // File: backend/server.js
-// COMPLETE DEBUG SERVER - Full working version
-
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
+const mongoose = require('mongoose');
+const { uploadNomineePhoto, uploadSupportingDocument } = require('./utils/cloudinaryUtils');
 
 require("dotenv").config();
 
 console.log('🚀 Starting Teendom Backend Server...');
-console.log('📁 Server directory:', __dirname);
 
-// Create Express app
 const app = express();
 
-// Create uploads directory first
+// Create uploads directory
 const uploadsDir = path.join(__dirname, 'uploads');
 const nominationsDir = path.join(uploadsDir, 'nominations');
 
 try {
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('📁 Created uploads directory');
   }
   if (!fs.existsSync(nominationsDir)) {
     fs.mkdirSync(nominationsDir, { recursive: true });
-    console.log('📁 Created nominations directory');
   }
-  console.log('✅ Upload directories ready');
 } catch (error) {
   console.error('❌ Failed to create directories:', error.message);
 }
 
-// Configure multer for file uploads
+// Configure multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, nominationsDir);
@@ -47,17 +42,15 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
-    files: 6 // Max 6 files
+    fileSize: 50 * 1024 * 1024,
+    files: 6
   },
   fileFilter: function (req, file, cb) {
-    console.log(`📁 File upload: ${file.originalname} (${file.mimetype})`);
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/gif',
       'application/pdf',
       'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'video/mp4', 'video/quicktime', 'video/x-msvideo'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
     
     if (allowedTypes.includes(file.mimetype)) {
@@ -68,261 +61,259 @@ const upload = multer({
   }
 });
 
-// CORS middleware
+// Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:3000",
   credentials: true,
 }));
 
-// Body parsing middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Request logging middleware
 app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`\n🌐 ${timestamp}`);
-  console.log(`📥 ${req.method} ${req.url}`);
-  console.log(`🔗 Content-Type: ${req.get('content-type') || 'none'}`);
-  console.log(`📦 Body keys: ${Object.keys(req.body)}`);
-  
-  if (req.url.includes('/nominations')) {
-    console.log('🎯 NOMINATIONS REQUEST DETECTED');
-  }
-  
+  console.log(`\n📥 ${req.method} ${req.url}`);
   next();
 });
 
-// Serve static files
 app.use('/uploads', express.static(uploadsDir));
 
-// Database connection (optional - fallback if not available)
+// Database connection
 let connectDB;
 try {
   connectDB = require("./config/database");
   connectDB().catch(err => {
     console.warn('⚠️ Database connection failed:', err.message);
-    console.log('📝 Using file-based storage as fallback');
   });
 } catch (error) {
   console.warn('⚠️ Database config not found, using file storage');
 }
 
-// Import other routes with fallbacks
+let isMongoConnected = false;
+let Nomination;
+
+if (connectDB) {
+  connectDB().then(() => {
+    try {
+      Nomination = require('./models/Nomination');
+      isMongoConnected = true;
+      console.log('✅ MongoDB + Nomination model ready');
+    } catch (error) {
+      console.warn('⚠️ Nomination model not found');
+    }
+  }).catch(err => {
+    console.warn('⚠️ MongoDB connection failed:', err.message);
+  });
+}
+
+// Import routes
 let articleRoutes, authRoutes;
 
 try {
   articleRoutes = require("./routes/articles");
-  console.log('✅ Article routes loaded');
 } catch (error) {
-  console.warn('⚠️ Article routes not found');
   articleRoutes = (req, res) => res.status(404).json({ message: 'Articles not available' });
 }
 
 try {
   authRoutes = require("./routes/auth");
-  console.log('✅ Auth routes loaded');
 } catch (error) {
-  console.warn('⚠️ Auth routes not found');
   authRoutes = (req, res) => res.status(404).json({ message: 'Auth not available' });
 }
 
-// Root endpoint
+// Routes
 app.get("/", (req, res) => {
-  console.log('🏠 Root endpoint accessed');
   res.json({
     status: "success",
     message: "🚀 Teendom Backend API is running!",
-    version: "2.1.0",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    endpoints: {
-      health: "/api/health",
-      articles: "/api/articles",
-      nominations: "/api/nominations",
-      nominationsHealth: "/api/nominations/health",
-      auth: "/api/auth"
+    version: "2.2.0",
+    features: {
+      mongodb: isMongoConnected,
+      cloudinary: !!(process.env.CLOUDINARY_CLOUD_NAME),
+      fileBackup: true
     }
   });
 });
 
-// Health check endpoint
 app.get("/api/health", (req, res) => {
-  console.log('🏥 Health check requested');
   res.json({
     status: "success",
     message: "✅ Backend is healthy",
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    memory: process.memoryUsage(),
     services: {
       uploads: fs.existsSync(nominationsDir) ? "Available" : "Error",
-      nominations: "Available"
+      mongodb: isMongoConnected ? "Connected" : "File storage",
+      cloudinary: !!(process.env.CLOUDINARY_CLOUD_NAME) ? "Configured" : "Local storage"
     }
   });
 });
 
-// Mount other routes
 app.use("/api/articles", articleRoutes);
 app.use("/api/auth", authRoutes);
 
-// NOMINATIONS ROUTES - BUILT INTO SERVER FOR GUARANTEED FUNCTIONALITY
-console.log('🎯 Setting up nominations routes directly in server...');
-
-// Nominations health endpoint
+// Nominations routes
 app.get('/api/nominations/health', (req, res) => {
-  console.log('🏥 Nominations health check');
   res.json({
     status: 'success',
     message: 'Nominations API is healthy',
-    timestamp: new Date().toISOString(),
-    uploadsDir: nominationsDir,
-    uploadsDirExists: fs.existsSync(nominationsDir),
-    routes: {
-      health: 'GET /api/nominations/health',
-      submit: 'POST /api/nominations',
-      status: 'GET /api/nominations/status/:submissionId'
+    mongodb: isMongoConnected,
+    cloudinary: !!(process.env.CLOUDINARY_CLOUD_NAME)
+  });
+});
+
+app.get('/api/nominations/test', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'Test endpoint working',
+    features: {
+      mongodb: isMongoConnected,
+      cloudinary: !!(process.env.CLOUDINARY_CLOUD_NAME)
     }
   });
 });
 
-// Nominations test endpoint
-app.get('/api/nominations/test', (req, res) => {
-  console.log('🧪 Nominations test endpoint');
-  res.json({
-    status: 'success',
-    message: 'Nominations test endpoint working',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Main nominations submission endpoint - WITH FILE UPLOAD
 app.post('/api/nominations', 
   upload.fields([
     { name: 'nomineePhoto', maxCount: 1 },
     { name: 'supportingFiles', maxCount: 5 }
   ]), 
-  (req, res) => {
-    console.log('🎯 POST /api/nominations - MAIN SUBMISSION ENDPOINT CALLED');
-    console.log('📦 Request body keys:', Object.keys(req.body));
-    console.log('📁 Files received:', {
-      nomineePhoto: req.files?.nomineePhoto?.length || 0,
-      supportingFiles: req.files?.supportingFiles?.length || 0
-    });
+  async (req, res) => {
+    console.log('🎯 POST /api/nominations');
     
     try {
-      // Generate submission ID
       const submissionId = `TA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      console.log('🎫 Generated submission ID:', submissionId);
       
-      // Parse nomination data
       let nominationData = {};
       try {
         if (req.body.nominationData) {
           nominationData = JSON.parse(req.body.nominationData);
-          console.log('✅ Parsed nomination data successfully');
-          console.log('👤 Nominee:', nominationData.nominee?.firstName, nominationData.nominee?.lastName);
-          console.log('🏆 Category:', nominationData.awardCategory);
         }
       } catch (parseError) {
-        console.warn('⚠️ Failed to parse nomination data:', parseError.message);
-        nominationData = { test: true };
+        nominationData = req.body;
       }
       
-      // Handle file uploads
-      let uploadedFiles = {
-        photo: null,
-        supportingFiles: []
-      };
+      let uploadedFiles = { photo: null, supportingFiles: [] };
       
+      // Upload photo
       if (req.files?.nomineePhoto?.[0]) {
         const photoFile = req.files.nomineePhoto[0];
-        uploadedFiles.photo = {
-          filename: photoFile.filename,
-          originalName: photoFile.originalname,
-          size: photoFile.size,
-          path: photoFile.path,
-          url: `/uploads/nominations/${photoFile.filename}`
-        };
-        console.log('📸 Photo uploaded:', uploadedFiles.photo.filename);
+        try {
+          const cloudResult = await uploadNomineePhoto(photoFile, submissionId);
+          uploadedFiles.photo = {
+            filename: photoFile.filename,
+            originalName: photoFile.originalname,
+            url: cloudResult.url,
+            cloudinary: { url: cloudResult.url, public_id: cloudResult.publicId }
+          };
+          fs.unlinkSync(photoFile.path);
+        } catch (cloudError) {
+          uploadedFiles.photo = {
+            filename: photoFile.filename,
+            originalName: photoFile.originalname,
+            url: `/uploads/nominations/${photoFile.filename}`
+          };
+        }
       }
       
+      // Upload supporting files
       if (req.files?.supportingFiles?.length > 0) {
-        uploadedFiles.supportingFiles = req.files.supportingFiles.map(file => ({
-          filename: file.filename,
-          originalName: file.originalname,
-          size: file.size,
-          path: file.path,
-          url: `/uploads/nominations/${file.filename}`
-        }));
-        console.log(`📋 ${uploadedFiles.supportingFiles.length} supporting files uploaded`);
+        for (let i = 0; i < req.files.supportingFiles.length; i++) {
+          const file = req.files.supportingFiles[i];
+          try {
+            const cloudResult = await uploadSupportingDocument(file, submissionId, i);
+            uploadedFiles.supportingFiles.push({
+              filename: file.filename,
+              originalName: file.originalname,
+              url: cloudResult.url,
+              cloudinary: { url: cloudResult.url, public_id: cloudResult.publicId }
+            });
+            fs.unlinkSync(file.path);
+          } catch (cloudError) {
+            uploadedFiles.supportingFiles.push({
+              filename: file.filename,
+              originalName: file.originalname,
+              url: `/uploads/nominations/${file.filename}`
+            });
+          }
+        }
       }
       
-      // Create nomination record
       const nominationRecord = {
         submissionId: submissionId,
         status: 'submitted',
         submittedAt: new Date(),
-        nominee: nominationData.nominee || { firstName: 'Test', lastName: 'User' },
-        nominator: nominationData.nominator || { firstName: 'Test', lastName: 'Nominator' },
-        awardCategory: nominationData.awardCategory || 'Test Category',
+        nominee: {
+          firstName: nominationData.nominee?.firstName || '',
+          lastName: nominationData.nominee?.lastName || '',
+          age: parseInt(nominationData.nominee?.age) || 0,
+          email: nominationData.nominee?.email || '',
+          county: nominationData.nominee?.county || ''
+        },
+        nominator: {
+          firstName: nominationData.nominator?.firstName || '',
+          lastName: nominationData.nominator?.lastName || '',
+          email: nominationData.nominator?.email || ''
+        },
+        awardCategory: nominationData.awardCategory || '',
+        documents: {
+          nomineePhoto: uploadedFiles.photo,
+          supportingFiles: uploadedFiles.supportingFiles
+        },
         files: uploadedFiles,
         rawData: nominationData
       };
       
-      // Save to file (as backup/primary storage)
-      const backupPath = path.join(nominationsDir, `nomination-${submissionId}.json`);
-      try {
-        fs.writeFileSync(backupPath, JSON.stringify(nominationRecord, null, 2));
-        console.log('💾 Nomination saved to file:', backupPath);
-      } catch (fileError) {
-        console.error('❌ Failed to save nomination file:', fileError.message);
+      let savedToMongo = false;
+      let mongoId = null;
+      
+      if (isMongoConnected && Nomination) {
+        try {
+          const newNomination = new Nomination(nominationRecord);
+          const savedNomination = await newNomination.save();
+          mongoId = savedNomination._id;
+          savedToMongo = true;
+        } catch (mongoError) {
+          console.error('❌ MongoDB save failed:', mongoError.message);
+        }
       }
       
-      // Response data
+      const backupPath = path.join(nominationsDir, `nomination-${submissionId}.json`);
+      let savedToFile = false;
+      try {
+        fs.writeFileSync(backupPath, JSON.stringify(nominationRecord, null, 2));
+        savedToFile = true;
+      } catch (fileError) {
+        console.error('❌ File backup failed:', fileError.message);
+      }
+      
       const responseData = {
         submissionId: submissionId,
-        nomineeFirstName: nominationRecord.nominee.firstName,
-        nomineeLastName: nominationRecord.nominee.lastName,
-        awardCategory: nominationRecord.awardCategory,
-        submittedAt: nominationRecord.submittedAt,
         status: 'submitted',
-        filesUploaded: {
-          photo: !!uploadedFiles.photo,
-          supportingFiles: uploadedFiles.supportingFiles.length
+        storage: {
+          mongodb: savedToMongo,
+          mongoId: mongoId ? mongoId.toString() : null,
+          fileBackup: savedToFile,
+          cloudinary: {
+            photo: !!uploadedFiles.photo?.cloudinary,
+            supportingFiles: uploadedFiles.supportingFiles.filter(f => f.cloudinary).length
+          }
         }
       };
       
-      // Success response
-      const response = {
+      res.status(201).json({
         status: 'success',
         message: 'Nomination submitted successfully',
         submissionId: submissionId,
         data: responseData
-      };
-      
-      console.log('✅ Sending success response');
-      console.log('📤 Response data:', {
-        submissionId: response.submissionId,
-        status: response.status
       });
       
-      res.status(201).json(response);
-      
     } catch (error) {
-      console.error('❌ Nomination submission error:', error);
-      console.error('📊 Error stack:', error.stack);
+      console.error('❌ Nomination error:', error);
       
-      // Clean up uploaded files on error
       if (req.files) {
         Object.values(req.files).flat().forEach(file => {
           if (fs.existsSync(file.path)) {
             try {
               fs.unlinkSync(file.path);
-              console.log('🗑️ Cleaned up file:', file.path);
-            } catch (cleanupError) {
-              console.error('❌ Cleanup failed:', cleanupError.message);
-            }
+            } catch {}
           }
         });
       }
@@ -330,29 +321,36 @@ app.post('/api/nominations',
       res.status(500).json({
         status: 'error',
         message: 'Failed to submit nomination',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
         submissionId: null
       });
     }
   }
 );
 
-// Submission status endpoint
-app.get('/api/nominations/status/:submissionId', (req, res) => {
-  console.log('📊 Status check for:', req.params.submissionId);
-  
+app.get('/api/nominations/status/:submissionId', async (req, res) => {
   try {
-    const backupPath = path.join(nominationsDir, `nomination-${req.params.submissionId}.json`);
+    let nomination = null;
     
-    if (fs.existsSync(backupPath)) {
-      const data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+    if (isMongoConnected && Nomination) {
+      try {
+        nomination = await Nomination.findOne({ submissionId: req.params.submissionId }).lean();
+      } catch (mongoError) {}
+    }
+    
+    if (!nomination) {
+      const backupPath = path.join(nominationsDir, `nomination-${req.params.submissionId}.json`);
+      if (fs.existsSync(backupPath)) {
+        nomination = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+      }
+    }
+    
+    if (nomination) {
       res.json({
         status: 'success',
         data: {
-          submissionId: data.submissionId,
-          status: data.status,
-          submittedAt: data.submittedAt,
-          nominee: data.nominee
+          submissionId: nomination.submissionId,
+          status: nomination.status,
+          submittedAt: nomination.submittedAt
         }
       });
     } else {
@@ -362,7 +360,6 @@ app.get('/api/nominations/status/:submissionId', (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Status check error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to check status'
@@ -370,39 +367,50 @@ app.get('/api/nominations/status/:submissionId', (req, res) => {
   }
 });
 
-// List all nominations (for admin/testing)
-app.get('/api/nominations/list', (req, res) => {
-  console.log('📋 List all nominations requested');
-  
+app.get('/api/nominations/list', async (req, res) => {
   try {
-    const files = fs.readdirSync(nominationsDir)
-      .filter(file => file.startsWith('nomination-') && file.endsWith('.json'))
-      .map(file => {
-        try {
-          const data = JSON.parse(fs.readFileSync(path.join(nominationsDir, file), 'utf8'));
-          return {
-            submissionId: data.submissionId,
-            status: data.status,
-            submittedAt: data.submittedAt,
-            nominee: data.nominee,
-            awardCategory: data.awardCategory
-          };
-        } catch (error) {
-          return null;
-        }
-      })
-      .filter(Boolean)
-      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    let nominations = [];
+    
+    if (isMongoConnected && Nomination) {
+      try {
+        nominations = await Nomination.find({})
+          .select('submissionId status submittedAt nominee awardCategory')
+          .sort({ submittedAt: -1 })
+          .lean();
+      } catch (mongoError) {}
+    }
+    
+    if (nominations.length === 0) {
+      const files = fs.readdirSync(nominationsDir)
+        .filter(file => file.startsWith('nomination-') && file.endsWith('.json'))
+        .map(file => {
+          try {
+            const data = JSON.parse(fs.readFileSync(path.join(nominationsDir, file), 'utf8'));
+            return {
+              submissionId: data.submissionId,
+              status: data.status,
+              submittedAt: data.submittedAt,
+              nominee: data.nominee,
+              awardCategory: data.awardCategory
+            };
+          } catch (error) {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+      
+      nominations = files;
+    }
     
     res.json({
       status: 'success',
       data: {
-        nominations: files,
-        total: files.length
+        nominations: nominations,
+        total: nominations.length
       }
     });
   } catch (error) {
-    console.error('❌ List nominations error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to list nominations'
@@ -410,39 +418,61 @@ app.get('/api/nominations/list', (req, res) => {
   }
 });
 
-console.log('✅ All nominations routes configured directly in server');
+app.get('/api/admin/nominations', async (req, res) => {
+  try {
+    let nominations = [];
+    
+    if (isMongoConnected && Nomination) {
+      try {
+        nominations = await Nomination.find({})
+          .sort({ submittedAt: -1 })
+          .lean();
+      } catch (mongoError) {}
+    }
+    
+    if (nominations.length === 0) {
+      const files = fs.readdirSync(nominationsDir)
+        .filter(file => file.startsWith('nomination-') && file.endsWith('.json'))
+        .map(file => {
+          try {
+            return JSON.parse(fs.readFileSync(path.join(nominationsDir, file), 'utf8'));
+          } catch (error) {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+      
+      nominations = files;
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        nominations,
+        total: nominations.length
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch nominations'
+    });
+  }
+});
 
 // 404 handler
 app.all("*", (req, res) => {
-  console.log(`\n❌ 404 ERROR:`);
-  console.log(`📍 Route: ${req.method} ${req.originalUrl}`);
-  console.log(`🔍 Available nominations routes:`);
-  console.log(`   - GET /api/nominations/health`);
-  console.log(`   - GET /api/nominations/test`);
-  console.log(`   - POST /api/nominations`);
-  console.log(`   - GET /api/nominations/status/:id`);
-  console.log(`   - GET /api/nominations/list`);
-  
   res.status(404).json({
     status: "error",
-    message: `Route ${req.originalUrl} not found`,
-    method: req.method,
-    availableRoutes: [
-      "GET /",
-      "GET /api/health",
-      "GET /api/nominations/health",
-      "GET /api/nominations/test",
-      "POST /api/nominations",
-      "GET /api/nominations/status/:id",
-      "GET /api/nominations/list"
-    ]
+    message: `Route ${req.originalUrl} not found`
   });
 });
 
-// Error handling middleware
+// Error handler
 app.use((error, req, res, next) => {
   console.error('🚨 Server Error:', error);
-  console.error('🚨 Error Stack:', error.stack);
   
   if (error.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
@@ -451,17 +481,9 @@ app.use((error, req, res, next) => {
     });
   }
   
-  if (error.message && error.message.includes('Invalid file type')) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'Invalid file type uploaded'
-    });
-  }
-  
   res.status(500).json({
     status: 'error',
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    message: 'Internal server error'
   });
 });
 
@@ -469,37 +491,27 @@ app.use((error, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
-  console.log('\n🚀 ===============================================');
-  console.log('🚀 TEENDOM AWARDS BACKEND SERVER - FULL VERSION');
-  console.log('🚀 ===============================================');
+  console.log(`\n🚀 TEENDOM BACKEND RUNNING ON PORT ${PORT}`);
   console.log(`🌐 Server: http://localhost:${PORT}`);
-  console.log(`🏥 Health: http://localhost:${PORT}/api/health`);
-  console.log(`🎯 Nominations:`);
-  console.log(`   📍 Health: GET http://localhost:${PORT}/api/nominations/health`);
-  console.log(`   📍 Test: GET http://localhost:${PORT}/api/nominations/test`);
-  console.log(`   📍 Submit: POST http://localhost:${PORT}/api/nominations`);
-  console.log(`   📍 Status: GET http://localhost:${PORT}/api/nominations/status/:id`);
-  console.log(`   📍 List: GET http://localhost:${PORT}/api/nominations/list`);
-  console.log(`📁 Files: http://localhost:${PORT}/uploads`);
-  console.log('🚀 ===============================================');
-  console.log('✅ READY FOR NOMINATION SUBMISSIONS!');
-  console.log('🔍 WATCH CONSOLE FOR DETAILED REQUEST LOGS');
-  console.log('🚀 ===============================================\n');
+  console.log(`💾 MongoDB: ${isMongoConnected ? 'CONNECTED' : 'FILE STORAGE'}`);
+  console.log(`☁️ Cloudinary: ${!!(process.env.CLOUDINARY_CLOUD_NAME) ? 'CONFIGURED' : 'LOCAL STORAGE'}`);
+  console.log(`✅ READY FOR NOMINATIONS\n`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received, shutting down gracefully...');
   server.close(() => {
-    console.log('✅ Server closed');
+    if (isMongoConnected) {
+      mongoose.connection.close();
+    }
     process.exit(0);
   });
 });
 
 process.on('SIGINT', () => {
-  console.log('🛑 SIGINT received, shutting down gracefully...');
   server.close(() => {
-    console.log('✅ Server closed');
+    if (isMongoConnected) {
+      mongoose.connection.close();
+    }
     process.exit(0);
   });
 });
