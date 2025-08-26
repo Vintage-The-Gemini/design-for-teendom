@@ -1,9 +1,10 @@
-// File: backend/server.js - WITH ADMIN ROUTES MOUNTED
+// File: backend/server.js - COMPLETE WITH FIXED STATIC FILE SERVING
 
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const multer = require("multer");
 
 require("dotenv").config();
 
@@ -28,7 +29,7 @@ app.use(cors({
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -41,12 +42,94 @@ app.use((req, res, next) => {
   next();
 });
 
-// Create uploads directory
-const nominationsDir = path.join(__dirname, 'uploads', 'nominations');
-if (!fs.existsSync(nominationsDir)) {
-  fs.mkdirSync(nominationsDir, { recursive: true });
-  console.log('✅ Created uploads directory');
-}
+// Create uploads directory structure
+const uploadsDir = path.join(__dirname, 'uploads');
+const nominationsDir = path.join(uploadsDir, 'nominations');
+const articlesDir = path.join(uploadsDir, 'articles');
+
+// Ensure directories exist
+[uploadsDir, nominationsDir, articlesDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`✅ Created directory: ${dir}`);
+  }
+});
+
+// ===== CRITICAL: SERVE STATIC FILES FIRST =====
+// This MUST come before other routes
+app.use('/uploads', express.static(uploadsDir, {
+  maxAge: '1d', // Cache for 1 day
+  setHeaders: (res, filePath) => {
+    console.log(`📁 Serving static file: ${filePath}`);
+    // Allow CORS for images
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+
+console.log(`📁 Static files served from: ${uploadsDir}`);
+console.log(`📁 Nominations directory: ${nominationsDir}`);
+
+// Debug endpoint to list files
+app.get('/api/debug/files', (req, res) => {
+  try {
+    const nominationFiles = fs.existsSync(nominationsDir) 
+      ? fs.readdirSync(nominationsDir) 
+      : [];
+    
+    const articleFiles = fs.existsSync(articlesDir) 
+      ? fs.readdirSync(articlesDir) 
+      : [];
+
+    res.json({
+      status: 'success',
+      directories: {
+        uploads: uploadsDir,
+        nominations: nominationsDir,
+        articles: articlesDir
+      },
+      files: {
+        nominations: nominationFiles,
+        articles: articleFiles
+      },
+      counts: {
+        nominations: nominationFiles.length,
+        articles: articleFiles.length
+      }
+    });
+  } catch (error) {
+    res.json({
+      status: 'error',
+      message: error.message,
+      directories: {
+        uploads: uploadsDir,
+        nominations: nominationsDir,
+        articles: articlesDir
+      }
+    });
+  }
+});
+
+// Test endpoint for direct image access
+app.get('/api/test/image/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(nominationsDir, filename);
+  
+  console.log(`🔍 Testing image access: ${filename}`);
+  console.log(`🔍 Full path: ${filePath}`);
+  console.log(`🔍 File exists: ${fs.existsSync(filePath)}`);
+  
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({
+      error: 'File not found',
+      filename: filename,
+      path: filePath,
+      exists: false
+    });
+  }
+});
 
 // Database connection
 console.log('🔗 Attempting database connection...');
@@ -70,7 +153,6 @@ if (connectDB) {
         Nomination = require('./models/Nomination');
         console.log('✅ Nomination model loaded');
         
-        // Load Article model for admin routes
         Article = require('./models/Article');
         console.log('✅ Article model loaded');
         
@@ -177,21 +259,24 @@ app.get("/", (req, res) => {
   res.json({
     status: "success",
     message: "🚀 Teendom Backend API is running!",
-    version: "2.5.0",
+    version: "2.6.0",
     timestamp: new Date().toISOString(),
     features: {
       mongodb: isMongoConnected,
       authentication: !!User,
       nominations: !!Nomination,
       articles: !!Article,
-      adminPanel: !!(adminArticleRoutes && User)
+      adminPanel: !!(adminArticleRoutes && User),
+      staticFiles: true
     },
     availableRoutes: {
       health: '/api/health',
       auth: '/api/auth/*',
       nominations: '/api/nominations/*',
       articles: '/api/articles/*',
-      admin: '/api/admin/*'
+      admin: '/api/admin/*',
+      uploads: '/uploads/*',
+      debug: '/api/debug/files'
     }
   });
 });
@@ -219,40 +304,58 @@ if (adminNominationRoutes) {
   console.log('✅ Admin nomination routes mounted at /api/admin/nominations');
 }
 
-// Serve static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Basic nominations endpoint (your existing one)
-const multer = require("multer");
-
+// Multer configuration for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, nominationsDir);
+    let uploadPath = nominationsDir; // Default
+    
+    // Determine upload path based on fieldname or route
+    if (file.fieldname === 'nomineePhoto' || file.fieldname === 'supportingFiles') {
+      uploadPath = nominationsDir;
+    } else if (file.fieldname === 'articleImage') {
+      uploadPath = articlesDir;
+    }
+    
+    console.log(`📁 Upload destination: ${uploadPath}`);
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const extension = path.extname(file.originalname);
+    const baseName = path.basename(file.originalname, extension);
+    const filename = `${file.fieldname}-${uniqueSuffix}${extension}`;
+    
+    console.log(`📁 Generated filename: ${filename}`);
+    cb(null, filename);
   }
 });
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 50000000,
-    files: parseInt(process.env.MAX_FILES) || 6
+    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 50000000, // 50MB
+    files: parseInt(process.env.MAX_FILES) || 10
+  },
+  fileFilter: (req, file, cb) => {
+    console.log(`📁 File filter check: ${file.originalname} (${file.mimetype})`);
+    
+    // Allow images and documents
+    const allowedMimes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf', 'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type not allowed: ${file.mimetype}`), false);
+    }
   }
 });
 
-app.get('/api/nominations/health', (req, res) => {
-  res.json({
-    status: 'success',
-    message: 'Nominations API is healthy',
-    mongodb: isMongoConnected,
-    models: { nomination: !!Nomination }
-  });
-});
-
-// Your existing nomination submission endpoint
+// Nomination submission endpoint with Cloudinary integration
 app.post('/api/nominations', 
   upload.fields([
     { name: 'nomineePhoto', maxCount: 1 },
@@ -260,6 +363,7 @@ app.post('/api/nominations',
   ]), 
   async (req, res) => {
     console.log('🎯 POST /api/nominations - Processing submission');
+    console.log('📁 Files received:', req.files);
     
     try {
       const submissionId = `TA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
@@ -274,41 +378,101 @@ app.post('/api/nominations',
         nominationData = req.body;
       }
       
-      // Handle file uploads (your existing logic)
-      let uploadedFiles = { photo: null, supportingFiles: [] };
+      // Import Cloudinary utilities
+      let cloudinaryUtils;
+      try {
+        cloudinaryUtils = require('./utils/cloudinaryUtils');
+      } catch (error) {
+        console.warn('⚠️ Cloudinary utils not available, using local storage');
+      }
       
+      // Handle file uploads - try Cloudinary first, fallback to local
+      let uploadedFiles = { photo: null, supportingFiles: [] };
+      let cloudinaryUploads = { photo: null, supportingFiles: [] };
+      
+      // Process nominee photo
       if (req.files?.nomineePhoto?.[0]) {
         const photoFile = req.files.nomineePhoto[0];
+        console.log('📸 Processing nominee photo:', photoFile.filename);
+        
+        // Try Cloudinary upload
+        if (cloudinaryUtils) {
+          try {
+            const cloudinaryResult = await cloudinaryUtils.uploadNomineePhoto(photoFile, submissionId);
+            console.log('☁️ Cloudinary upload successful:', cloudinaryResult.url);
+            
+            cloudinaryUploads.photo = {
+              url: cloudinaryResult.url,
+              publicId: cloudinaryResult.publicId,
+              cloudinary: true,
+              filename: photoFile.originalname,
+              size: cloudinaryResult.bytes
+            };
+          } catch (cloudinaryError) {
+            console.error('❌ Cloudinary photo upload failed:', cloudinaryError.message);
+            console.log('📁 Falling back to local storage...');
+          }
+        }
+        
+        // Local storage (always as backup)
         uploadedFiles.photo = {
           filename: photoFile.filename,
+          originalName: photoFile.originalname,
           path: photoFile.path,
           url: `/uploads/nominations/${photoFile.filename}`,
-          size: photoFile.size
+          size: photoFile.size,
+          mimetype: photoFile.mimetype
         };
       }
       
+      // Process supporting files
       if (req.files?.supportingFiles) {
-        req.files.supportingFiles.forEach(file => {
+        for (let i = 0; i < req.files.supportingFiles.length; i++) {
+          const file = req.files.supportingFiles[i];
+          console.log(`📎 Processing supporting file ${i + 1}:`, file.filename);
+          
+          // Try Cloudinary upload
+          if (cloudinaryUtils) {
+            try {
+              const cloudinaryResult = await cloudinaryUtils.uploadSupportingDocument(file, submissionId, i);
+              console.log(`☁️ Cloudinary supporting file ${i + 1} upload successful:`, cloudinaryResult.url);
+              
+              cloudinaryUploads.supportingFiles.push({
+                url: cloudinaryResult.url,
+                publicId: cloudinaryResult.publicId,
+                cloudinary: true,
+                filename: file.originalname,
+                size: cloudinaryResult.bytes,
+                mimetype: file.mimetype
+              });
+            } catch (cloudinaryError) {
+              console.error(`❌ Cloudinary supporting file ${i + 1} upload failed:`, cloudinaryError.message);
+            }
+          }
+          
+          // Local storage (always as backup)
           uploadedFiles.supportingFiles.push({
             filename: file.filename,
+            originalName: file.originalname,
             path: file.path,
             url: `/uploads/nominations/${file.filename}`,
             size: file.size,
             mimetype: file.mimetype
           });
-        });
+        }
       }
       
-      // Prepare nomination record
+      // Prepare nomination record with both storage methods
       const nominationRecord = {
         submissionId: submissionId,
         ...nominationData,
-        files: uploadedFiles,
+        files: uploadedFiles, // Local files (backup)
+        cloudinary: cloudinaryUploads, // Cloudinary files (primary)
         submittedAt: new Date(),
         status: 'submitted'
       };
       
-      // Save to database and file
+      // Save to database
       let mongoId = null;
       let savedToMongo = false;
       
@@ -318,9 +482,10 @@ app.post('/api/nominations',
           const savedNomination = await newNomination.save();
           mongoId = savedNomination._id;
           savedToMongo = true;
-          console.log('✅ Successfully saved to MongoDB');
+          console.log('✅ Successfully saved to MongoDB:', mongoId);
         } catch (mongoSaveError) {
           console.error('❌ MongoDB save failed:', mongoSaveError.message);
+          console.log('📊 Nomination data structure:', JSON.stringify(nominationRecord, null, 2));
         }
       }
       
@@ -345,8 +510,17 @@ app.post('/api/nominations',
           storage: {
             mongodb: savedToMongo,
             mongoId: mongoId ? mongoId.toString() : null,
-            fileBackup: savedToFile,
-            cloudinary: { photo: false, supportingFiles: 0 }
+            fileBackup: savedToFile
+          },
+          files: {
+            photo: {
+              cloudinary: cloudinaryUploads.photo ? cloudinaryUploads.photo.url : null,
+              local: uploadedFiles.photo ? uploadedFiles.photo.filename : null
+            },
+            supportingFiles: {
+              cloudinary: cloudinaryUploads.supportingFiles.length,
+              local: uploadedFiles.supportingFiles.length
+            }
           }
         }
       });
@@ -372,7 +546,8 @@ app.use('/api/*', (req, res) => {
       auth: 'POST /api/auth/login',
       nominations: 'POST /api/nominations',
       adminArticles: 'GET /api/admin/articles/stats/overview',
-      adminCategories: 'GET /api/admin/categories'
+      adminCategories: 'GET /api/admin/categories',
+      debug: 'GET /api/debug/files'
     }
   });
 });
@@ -395,14 +570,20 @@ app.listen(PORT, () => {
 🌐 Frontend: http://localhost:3000
 🔗 Backend: http://localhost:${PORT}
 📊 Health: http://localhost:${PORT}/api/health
+📁 Debug Files: http://localhost:${PORT}/api/debug/files
+📁 Static Files: http://localhost:${PORT}/uploads/
 
 📋 Status Summary:
    Database: ${isMongoConnected ? '✅ Connected' : '❌ Disconnected'}
    Auth: ${!!User ? '✅ Ready' : '❌ No User Model'}
    Articles: ${!!Article ? '✅ Ready' : '❌ No Article Model'}
    Admin Routes: ${!!adminArticleRoutes ? '✅ Mounted' : '❌ Not Available'}
+   Static Files: ✅ Served from ${uploadsDir}
+   Nominations Dir: ✅ ${nominationsDir}
 
-🎉 Admin panel should work now!
+🎉 Server ready with enhanced static file serving!
 =============================
   `);
 });
+
+module.exports = app;
