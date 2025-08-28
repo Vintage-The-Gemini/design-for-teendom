@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import NominationForm from '../components/NominationForm';
 
 const AwardsPage = () => {
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [showNominationForm, setShowNominationForm] = useState(false);
   const [selectedCategoryForNomination, setSelectedCategoryForNomination] = useState('');
 
@@ -12,31 +11,31 @@ const AwardsPage = () => {
       name: 'Academic Excellence',
       icon: '🎓',
       description: 'Outstanding academic performance, scholarly achievements, and intellectual pursuits.',
-      color: 'from-blue-500 to-blue-700'
+      color: 'from-red-500 to-red-700'
     },
     {
       name: 'Leadership Excellence',
       icon: '👑',
       description: 'Exceptional leadership skills in school, community, or peer groups.',
-      color: 'from-purple-500 to-purple-700'
+      color: 'from-red-500 to-red-700'
     },
     {
       name: 'Sports Excellence',
       icon: '🏆',
       description: 'Outstanding athletic performance and sportsmanship.',
-      color: 'from-green-500 to-green-700'
+      color: 'from-red-500 to-red-700'
     },
     {
       name: 'Arts & Creativity',
       icon: '🎨',
       description: 'Excellence in visual arts, performing arts, music, writing, or creative expression.',
-      color: 'from-pink-500 to-pink-700'
+      color: 'from-red-500 to-red-700'
     },
     {
       name: 'Innovation & Technology',
       icon: '💡',
       description: 'Creative problem-solving, technological innovation, or scientific discovery.',
-      color: 'from-yellow-500 to-yellow-700'
+      color: 'from-red-500 to-red-700'
     },
     {
       name: 'Community Service',
@@ -48,267 +47,174 @@ const AwardsPage = () => {
       name: 'Environmental Champion',
       icon: '🌱',
       description: 'Environmental conservation, sustainability initiatives, and climate action.',
-      color: 'from-emerald-500 to-emerald-700'
+      color: 'from-red-500 to-red-700'
     },
     {
       name: 'Entrepreneurship',
       icon: '💼',
       description: 'Business innovation, startup creation, or entrepreneurial thinking.',
-      color: 'from-indigo-500 to-indigo-700'
+      color: 'from-red-500 to-red-700'
     },
     {
       name: 'Advocate for Change',
       icon: '✊',
       description: 'Championing social causes, human rights, or positive social change.',
-      color: 'from-orange-500 to-orange-700'
+      color: 'from-red-500 to-red-700'
     },
     {
-      name: 'Cultural Ambassador',
-      icon: '🌍',
-      description: 'Promoting cultural understanding, diversity, and cross-cultural connections.',
-      color: 'from-teal-500 to-teal-700'
+      name: 'Digital Impact',
+      icon: '📱',
+      description: 'Using digital platforms to inspire, educate, or mobilize audiences for good.',
+      color: 'from-red-500 to-red-700'
     }
   ];
 
-  // Handle nomination button click
+  // FIXED: Complete nomination button handler
   const handleNominate = (category = null) => {
-    setSelectedCategoryForNomination(category ? category.name : '');
+    console.log('🎯 Nominate button clicked', category ? `for ${category}` : 'general');
+    setSelectedCategoryForNomination(category || '');
     setShowNominationForm(true);
-    setSelectedCategory(null); // Close category modal if open
   };
 
   // Close nomination form
-  const closeNominationForm = () => {
+  const handleCloseForm = () => {
+    console.log('❌ Closing nomination form');
     setShowNominationForm(false);
     setSelectedCategoryForNomination('');
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-red-600 to-red-800 text-white py-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-5xl font-black mb-6" style={{fontFamily: 'Space Grotesk, sans-serif'}}>
-              🏆 Teendom Awards 2025
+    <>
+      <div className="pt-20 bg-white min-h-screen">
+        {/* Hero Section */}
+        <section className="py-20 bg-gradient-to-br from-red-50 via-white to-red-50 relative overflow-hidden">
+          <div className="absolute top-10 left-10 w-32 h-32 bg-red-500 rounded-full opacity-10 animate-float"></div>
+          <div className="absolute top-40 right-20 w-24 h-24 bg-red-600 rounded-full opacity-15"></div>
+          <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-red-400 rounded-full opacity-10"></div>
+          
+          <div className="max-w-7xl mx-auto px-6 text-center relative">
+            <h1 className="text-6xl md:text-8xl font-black text-gray-900 mb-8 leading-none tracking-tight">
+              TEENDOM
+              <br/>
+              <span className="text-red-600">AWARDS</span>
             </h1>
-            <p className="text-xl text-red-100 mb-8 max-w-3xl mx-auto">
-              Celebrating Kenya's extraordinary teenagers - the thinkers, leaders, creators, 
-              and changemakers between the ages of 13 to 19 who are leading change in their communities.
-            </p>
             
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                <div>
-                  <div className="text-3xl font-bold">10</div>
-                  <div className="text-red-100">Award Categories</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold">13-19</div>
-                  <div className="text-red-100">Age Range</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold">Dec 6</div>
-                  <div className="text-red-100">Awards Ceremony</div>
-                </div>
-              </div>
+            <div className="max-w-4xl mx-auto">
+              <p className="text-xl md:text-2xl font-medium text-gray-700 leading-relaxed mb-12">
+                Celebrating Kenya's outstanding teenagers - the thinkers, leaders, creators, and changemakers 
+                between ages 13-19 who are shaping our future.
+              </p>
+              
+              {/* Main Nominate Button */}
+              <button
+                onClick={() => handleNominate()}
+                className="bg-red-600 text-white px-12 py-6 text-2xl font-bold rounded-lg hover:bg-red-700 transform hover:scale-105 transition-all duration-300 shadow-xl"
+              >
+                🏆 NOMINATE NOW
+              </button>
+              
+              <p className="text-gray-600 mt-6">
+                Deadline: September 30th, 2025 | Ages 13-19 | Kenyan Citizens & Residents
+              </p>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Timeline Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-black mb-4" style={{fontFamily: 'Space Grotesk, sans-serif'}}>
-              Awards Timeline
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Follow our structured process from nominations to the grand celebration
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { phase: 'Pre-Awards', date: 'Aug - Sep 4', status: 'active' },
-              { phase: 'Nominations', date: 'Sep 5 - 30', status: 'upcoming' },
-              { phase: 'Judging', date: 'Oct 5 - Nov 5', status: 'upcoming' },
-              { phase: 'Voting', date: 'Nov 8 - 21', status: 'upcoming' },
-              { phase: 'Ceremony', date: 'Dec 6', status: 'upcoming' },
-              { phase: 'Legacy', date: '2026', status: 'upcoming' }
-            ].map((item, index) => (
-              <div key={index} className={`p-4 rounded-lg text-center ${
-                item.status === 'active' ? 'bg-red-100 border-2 border-red-500' : 'bg-gray-100'
-              }`}>
-                <div className={`text-sm font-bold ${
-                  item.status === 'active' ? 'text-red-700' : 'text-gray-600'
-                }`}>
-                  {item.phase}
-                </div>
-                <div className={`text-xs ${
-                  item.status === 'active' ? 'text-red-600' : 'text-gray-500'
-                }`}>
-                  {item.date}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Categories Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-black mb-4" style={{fontFamily: 'Space Grotesk, sans-serif'}}>
-              Award Categories
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Recognizing excellence across diverse fields of teenage achievement
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
-                <div className={`h-20 bg-gradient-to-r ${category.color} flex items-center justify-center`}>
-                  <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
-                    {category.icon}
-                  </span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold mb-3">{category.name}</h3>
-                  <p className="text-gray-600 text-sm mb-4">
-                    {category.description}
-                  </p>
-                  <div className="flex justify-between items-center">
+        {/* Award Categories */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-5xl font-black text-gray-900 mb-6">Award Categories</h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Choose the category that best represents the nominee's achievements and impact
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {categories.map((category, index) => (
+                <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100">
+                  <div className={`bg-gradient-to-r ${category.color} p-6 text-white`}>
+                    <div className="text-4xl mb-3">{category.icon}</div>
+                    <h3 className="text-xl font-bold">{category.name}</h3>
+                  </div>
+                  
+                  <div className="p-6">
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      {category.description}
+                    </p>
+                    
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleNominate(category);
-                      }}
-                      className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                      onClick={() => handleNominate(category.name)}
+                      className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-bold hover:bg-red-700 transition-all duration-300"
                     >
-                      Nominate
-                    </button>
-                    <button 
-                      onClick={() => setSelectedCategory(category)}
-                      className="text-red-600 hover:text-red-700 font-semibold"
-                    >
-                      Learn More →
+                      Nominate for {category.name}
                     </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action Section */}
-      <section className="py-16 bg-red-600 text-white">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-black mb-6" style={{fontFamily: 'Space Grotesk, sans-serif'}}>
-            Ready to Make a Difference?
-          </h2>
-          <p className="text-xl text-red-100 mb-8">
-            Know an outstanding teenager who deserves recognition? 
-            Nominate them today and help us celebrate the next generation of leaders!
-          </p>
-          
-          <button
-            onClick={() => handleNominate()}
-            className="bg-white text-red-600 px-8 py-4 rounded-full text-xl font-bold hover:bg-red-50 transition-all duration-300 transform hover:scale-105 shadow-lg"
-          >
-            🌟 START NOMINATION
-          </button>
-          
-          <div className="mt-8 text-sm text-red-200">
-            <p>Deadline: September 30, 2025 | Free to Submit | Self-nominations Welcome</p>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-black mb-4" style={{fontFamily: 'Space Grotesk, sans-serif'}}>
-              Frequently Asked Questions
-            </h2>
-          </div>
-
-          <div className="space-y-6">
-            {[
-              {
-                question: "Who can be nominated?",
-                answer: "Any teenager aged 13-19 (as of Dec 1, 2025) who is a Kenyan citizen or resident and making a positive impact in their community."
-              },
-              {
-                question: "Can I nominate myself?",
-                answer: "Yes! Self-nominations are welcome and encouraged. We believe teens should be empowered to share their own achievements."
-              },
-              {
-                question: "Is there a nomination fee?",
-                answer: "No, nominations are completely free. We believe recognition should be accessible to all deserving teenagers."
-              },
-              {
-                question: "What do winners receive?",
-                answer: "Winners receive national recognition, custom certificates, access to our alumni network, and a 12-month leadership development program."
-              }
-            ].map((faq, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-6">
-                <h3 className="font-bold text-lg mb-2">{faq.question}</h3>
-                <p className="text-gray-600">{faq.answer}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Category Detail Modal */}
-      {selectedCategory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className={`h-32 bg-gradient-to-r ${selectedCategory.color} flex items-center justify-center`}>
-              <span className="text-6xl">{selectedCategory.icon}</span>
+              ))}
             </div>
-            <div className="p-8">
-              <h2 className="text-3xl font-bold mb-4">{selectedCategory.name}</h2>
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                {selectedCategory.description}
-              </p>
+          </div>
+        </section>
+
+        {/* General Information */}
+        <section className="py-20 bg-gray-50">
+          <div className="max-w-4xl mx-auto px-6 text-center">
+            <h2 className="text-4xl font-bold text-gray-900 mb-8">How to Nominate</h2>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+              <div className="text-center">
+                <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-red-600 font-bold text-xl">1</span>
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Choose Category</h3>
+                <p className="text-gray-600 text-sm">Select the award category that best fits the nominee</p>
+              </div>
               
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    handleNominate(selectedCategory);
-                  }}
-                  className="flex-1 py-3 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
-                >
-                  Nominate for This Category
-                </button>
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Close
-                </button>
+              <div className="text-center">
+                <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-red-600 font-bold text-xl">2</span>
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Fill Form</h3>
+                <p className="text-gray-600 text-sm">Complete the nomination form with detailed information</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-red-600 font-bold text-xl">3</span>
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Upload Files</h3>
+                <p className="text-gray-600 text-sm">Add photos, certificates, and supporting documents</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-red-600 font-bold text-xl">4</span>
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Submit</h3>
+                <p className="text-gray-600 text-sm">Submit and receive confirmation via email</p>
               </div>
             </div>
+            
+            <button
+              onClick={() => handleNominate()}
+              className="bg-red-600 text-white px-8 py-4 text-xl font-bold rounded-lg hover:bg-red-700 transition-all duration-300"
+            >
+              Start Your Nomination
+            </button>
           </div>
+        </section>
+      </div>
+
+      {/* FIXED: Nomination Form Modal */}
+      {showNominationForm && (
+        <div className="fixed inset-0 z-50">
+          <NominationForm
+            isOpen={showNominationForm}
+            onClose={handleCloseForm}
+            selectedCategory={selectedCategoryForNomination}
+          />
         </div>
       )}
-
-      {/* Complete Nomination Form Modal */}
-      <NominationForm
-        isOpen={showNominationForm}
-        onClose={closeNominationForm}
-        selectedCategory={selectedCategoryForNomination}
-      />
-    </div>
+    </>
   );
 };
 

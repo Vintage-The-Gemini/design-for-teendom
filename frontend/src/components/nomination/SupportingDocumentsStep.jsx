@@ -1,5 +1,5 @@
 // File: frontend/src/components/nomination/SupportingDocumentsStep.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const SupportingDocumentsStep = ({ 
   formData, 
@@ -11,9 +11,29 @@ const SupportingDocumentsStep = ({
   const [uploadProgress, setUploadProgress] = useState({});
   const [previewUrls, setPreviewUrls] = useState({});
 
-  // Handle Photo Upload - Store file locally for backend submission
+  // Cleanup blob URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (previewUrls.photo) {
+        URL.revokeObjectURL(previewUrls.photo);
+      }
+      
+      Object.values(previewUrls).forEach(url => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [previewUrls]);
+
+  // Handle Photo Upload
   const handlePhotoUpload = async (file) => {
     if (!file) return;
+    
+    // Clean up previous preview URL
+    if (previewUrls.photo) {
+      URL.revokeObjectURL(previewUrls.photo);
+    }
     
     // Validate file type and size
     if (!file.type.startsWith('image/')) {
@@ -21,23 +41,19 @@ const SupportingDocumentsStep = ({
       return;
     }
     
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    if (file.size > 10 * 1024 * 1024) {
       setErrors(prev => ({ ...prev, photo: 'Image must be less than 10MB' }));
       return;
     }
     
     try {
-      // Start progress
       setUploadProgress(prev => ({ ...prev, photo: 0 }));
       
-      // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setPreviewUrls(prev => ({ ...prev, photo: previewUrl }));
       
-      // Store file for backend submission
       handleNestedChange('nominee', 'photoFile', file);
       
-      // Simulate upload progress
       let progress = 0;
       const interval = setInterval(() => {
         progress += 20;
@@ -51,7 +67,6 @@ const SupportingDocumentsStep = ({
             return newErrors;
           });
           
-          // Clear progress after 2 seconds
           setTimeout(() => {
             setUploadProgress(prev => ({ ...prev, photo: undefined }));
           }, 2000);
@@ -64,12 +79,11 @@ const SupportingDocumentsStep = ({
     }
   };
 
-  // Handle Supporting Files Upload - Store files locally for backend submission
+  // Handle Supporting Files Upload
   const handleSupportingFilesUpload = async (files) => {
     const fileArray = Array.from(files);
     const currentFiles = formData.supportingFiles;
     
-    // Check total file limit (5 files max)
     if (currentFiles.length + fileArray.length > 5) {
       setErrors(prev => ({ 
         ...prev, 
@@ -78,7 +92,6 @@ const SupportingDocumentsStep = ({
       return;
     }
     
-    // Validate each file
     const validFiles = [];
     const validTypes = [
       'application/pdf',
@@ -101,7 +114,7 @@ const SupportingDocumentsStep = ({
         continue;
       }
       
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) {
         setErrors(prev => ({ 
           ...prev, 
           supportingFiles: `${file.name} is too large (max 10MB)` 
@@ -114,7 +127,6 @@ const SupportingDocumentsStep = ({
     
     if (validFiles.length === 0) return;
     
-    // Process each valid file
     const processedFiles = [];
     
     for (let i = 0; i < validFiles.length; i++) {
@@ -124,7 +136,6 @@ const SupportingDocumentsStep = ({
       try {
         setUploadProgress(prev => ({ ...prev, [fileKey]: 0 }));
         
-        // Simulate upload progress
         let progress = 0;
         const interval = setInterval(() => {
           progress += 25;
@@ -132,7 +143,6 @@ const SupportingDocumentsStep = ({
           
           if (progress >= 100) {
             clearInterval(interval);
-            // Clear progress after 1 second
             setTimeout(() => {
               setUploadProgress(prev => {
                 const newProgress = { ...prev };
@@ -143,9 +153,8 @@ const SupportingDocumentsStep = ({
           }
         }, 150);
         
-        // Store file data for backend submission
         processedFiles.push({
-          file: file, // The actual file object
+          file: file,
           originalName: file.name,
           mimetype: file.type,
           size: file.size,
@@ -184,8 +193,7 @@ const SupportingDocumentsStep = ({
   const removeSupportingFile = (index) => {
     const fileToRemove = formData.supportingFiles[index];
     
-    // Revoke preview URL if it exists
-    if (fileToRemove.preview) {
+    if (fileToRemove.preview && fileToRemove.preview.startsWith('blob:')) {
       URL.revokeObjectURL(fileToRemove.preview);
     }
     
@@ -197,14 +205,12 @@ const SupportingDocumentsStep = ({
 
   // Remove Photo
   const removePhoto = () => {
-    // Clear photo data
-    handleNestedChange('nominee', 'photoFile', null);
-    
-    // Clear any preview URLs
     if (previewUrls.photo) {
       URL.revokeObjectURL(previewUrls.photo);
       setPreviewUrls(prev => ({ ...prev, photo: null }));
     }
+    
+    handleNestedChange('nominee', 'photoFile', null);
   };
 
   // Format file size
@@ -227,7 +233,10 @@ const SupportingDocumentsStep = ({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-bold mb-4 text-red-600">📁 Supporting Documents & Images</h3>
+      <div className="text-center mb-6">
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">📁 Supporting Documents</h3>
+        <p className="text-gray-600">Upload nominee photo and supporting materials</p>
+      </div>
       
       {/* Required Nominee Photo */}
       <div className="space-y-4">
@@ -236,61 +245,65 @@ const SupportingDocumentsStep = ({
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {formData.nominee.photoFile ? (
             <div className="space-y-4">
-              {/* Photo Preview */}
-              <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center space-x-4">
                 {previewUrls.photo && (
-                  <img 
-                    src={previewUrls.photo} 
-                    alt="Nominee preview" 
-                    className="w-32 h-32 object-cover rounded-lg border"
+                  <img
+                    src={previewUrls.photo}
+                    alt="Nominee preview"
+                    className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
                   />
                 )}
-                <div className="mt-2 text-center">
-                  <p className="text-sm font-medium text-gray-700">{formData.nominee.photoFile.name}</p>
-                  <p className="text-xs text-gray-500">{formatFileSize(formData.nominee.photoFile.size)}</p>
+                <div className="text-left">
+                  <p className="font-medium text-gray-900">{formData.nominee.photoFile.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {formatFileSize(formData.nominee.photoFile.size)}
+                  </p>
+                  {uploadProgress.photo !== undefined && (
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress.photo}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Preparing... {uploadProgress.photo}%
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              {/* Upload Progress */}
-              {uploadProgress.photo !== undefined && (
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress.photo}%` }}
-                  ></div>
-                </div>
-              )}
-              
-              {/* Remove Button */}
               <button
                 type="button"
                 onClick={removePhoto}
-                className="text-red-600 hover:text-red-800 text-sm underline"
+                className="text-red-600 hover:text-red-800 text-sm font-medium"
               >
                 Remove Photo
               </button>
             </div>
           ) : (
             <div>
-              <div className="mx-auto h-12 w-12 text-gray-400 mb-4">📸</div>
-              <label htmlFor="nomineePhoto" className="cursor-pointer">
+              <div className="mx-auto h-12 w-12 text-gray-400 mb-4">📷</div>
+              <label htmlFor="nominee-photo" className="cursor-pointer">
                 <span className="mt-2 block text-sm font-medium text-gray-900">
                   Upload Nominee Photo
                 </span>
                 <span className="mt-1 block text-xs text-gray-500">
-                  PNG, JPG, GIF up to 10MB
+                  Click to select or drag and drop
+                </span>
+                <span className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                  Choose Photo
                 </span>
                 <input
-                  id="nomineePhoto"
+                  id="nominee-photo"
                   type="file"
                   accept="image/*"
                   onChange={(e) => handlePhotoUpload(e.target.files[0])}
                   className="sr-only"
+                  required
                 />
-                <span className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
-                  Choose Photo
-                </span>
               </label>
+              <p className="text-xs text-gray-400 mt-2">PNG, JPG up to 10MB</p>
             </div>
           )}
         </div>
@@ -302,12 +315,11 @@ const SupportingDocumentsStep = ({
 
       {/* Supporting Files */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">📋 Supporting Files (Optional)</h4>
+        <h4 className="text-lg font-semibold text-gray-700">📎 Supporting Files (Optional)</h4>
         <p className="text-sm text-gray-600">
-          Upload documents, images, or videos that support this nomination (certificates, awards, project photos, etc.)
+          Upload certificates, awards, project photos, videos, or other supporting materials (Max 5 files)
         </p>
         
-        {/* File Upload Area */}
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           <div className="mx-auto h-12 w-12 text-gray-400 mb-4">📎</div>
           <label htmlFor="supportingFiles" className="cursor-pointer">
@@ -335,7 +347,6 @@ const SupportingDocumentsStep = ({
           <p className="text-red-600 text-sm">{errors.supportingFiles}</p>
         )}
         
-        {/* Display Uploaded Files */}
         {formData.supportingFiles.length > 0 && (
           <div className="space-y-3">
             <h5 className="font-medium text-gray-700">Uploaded Files:</h5>
@@ -349,23 +360,22 @@ const SupportingDocumentsStep = ({
                   </div>
                 </div>
                 
-                {/* Upload Progress */}
-                {uploadProgress[`supportingFile_${index}`] !== undefined && (
-                  <div className="w-24 bg-gray-200 rounded-full h-2 mr-4">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress[`supportingFile_${index}`]}%` }}
-                    ></div>
-                  </div>
-                )}
-                
-                <button
-                  type="button"
-                  onClick={() => removeSupportingFile(index)}
-                  className="text-red-600 hover:text-red-800 text-sm"
-                >
-                  Remove
-                </button>
+                <div className="flex items-center space-x-2">
+                  {file.preview && (
+                    <img
+                      src={file.preview}
+                      alt="Preview"
+                      className="w-10 h-10 object-cover rounded"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeSupportingFile(index)}
+                    className="text-red-600 hover:text-red-800 text-sm font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -374,14 +384,24 @@ const SupportingDocumentsStep = ({
 
       {/* Social Media Links */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">🌐 Social Media Links (Optional)</h4>
+        <h4 className="text-lg font-semibold text-gray-700">🌐 Social Media & Website Links (Optional)</h4>
         <p className="text-sm text-gray-600">
-          Links to the nominee's social media profiles or websites that showcase their work
+          Add relevant social media profiles or websites that showcase the nominee's work
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">📸 Instagram</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+            <input
+              type="url"
+              value={formData.socialMediaLinks?.website || ''}
+              onChange={(e) => handleNestedChange('socialMediaLinks', 'website', e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="https://website.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
             <input
               type="url"
               value={formData.socialMediaLinks?.instagram || ''}
@@ -390,85 +410,37 @@ const SupportingDocumentsStep = ({
               placeholder="https://instagram.com/username"
             />
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🐦 Twitter</label>
-            <input
-              type="url"
-              value={formData.socialMediaLinks?.twitter || ''}
-              onChange={(e) => handleNestedChange('socialMediaLinks', 'twitter', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="https://twitter.com/username"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">💼 LinkedIn</label>
-            <input
-              type="url"
-              value={formData.socialMediaLinks?.linkedin || ''}
-              onChange={(e) => handleNestedChange('socialMediaLinks', 'linkedin', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="https://linkedin.com/in/username"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">📺 YouTube</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">YouTube</label>
             <input
               type="url"
               value={formData.socialMediaLinks?.youtube || ''}
               onChange={(e) => handleNestedChange('socialMediaLinks', 'youtube', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="https://youtube.com/channel/..."
+              placeholder="https://youtube.com/channel"
             />
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🎵 TikTok</label>
-            <input
-              type="url"
-              value={formData.socialMediaLinks?.tiktok || ''}
-              onChange={(e) => handleNestedChange('socialMediaLinks', 'tiktok', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="https://tiktok.com/@username"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🌐 Other Website</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Other Link</label>
             <input
               type="url"
               value={formData.socialMediaLinks?.other || ''}
               onChange={(e) => handleNestedChange('socialMediaLinks', 'other', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="https://website.com"
+              placeholder="https://other-platform.com"
             />
           </div>
         </div>
       </div>
 
-      {/* Backend Upload Information */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h5 className="font-semibold text-blue-800 mb-2">💾 File Storage:</h5>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• Files are prepared locally and will be uploaded securely when you submit the nomination</li>
-          <li>• All files are uploaded to secure cloud storage during submission</li>
-          <li>• Your data is encrypted and safely stored for admin and judge review</li>
-          <li>• Files are automatically optimized and backed up</li>
-        </ul>
-      </div>
-
-      {/* File Upload Guidelines */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h5 className="font-semibold text-yellow-800 mb-2">📋 File Upload Guidelines:</h5>
-        <ul className="text-sm text-yellow-700 space-y-1">
-          <li>• <strong>Nominee Photo:</strong> Required - Clear, recent photo of the nominee</li>
-          <li>• <strong>Supporting Files:</strong> Optional but recommended for stronger nominations</li>
-          <li>• <strong>Accepted Formats:</strong> PDF, Word docs, Images (JPG/PNG/GIF), Videos (MP4/MOV)</li>
-          <li>• <strong>File Size Limit:</strong> Maximum 10MB per file</li>
-          <li>• <strong>Total Files:</strong> Up to 5 supporting files + 1 nominee photo</li>
-          <li>• <strong>Recommended Content:</strong> Certificates, awards, project photos, videos of achievements</li>
+      {/* Storage Information */}
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <h5 className="font-semibold text-red-800 mb-2">💾 File Storage Information:</h5>
+        <ul className="text-sm text-red-700 space-y-1">
+          <li>• Files are prepared locally and uploaded securely to Cloudinary when you submit</li>
+          <li>• Primary storage: Cloudinary CDN for fast, optimized delivery</li>
+          <li>• Backup storage: Local server files as failsafe</li>
+          <li>• All uploads are encrypted and stored safely for review</li>
         </ul>
       </div>
 
@@ -477,7 +449,7 @@ const SupportingDocumentsStep = ({
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-green-800">Files Ready</span>
           <span className="text-sm text-green-600">
-            {formData.nominee.photoFile ? '✅ Photo' : '❌ Photo'} | 
+            {formData.nominee.photoFile ? '✅ Photo' : '❌ Photo Required'} | 
             {formData.supportingFiles.length} Supporting Files
           </span>
         </div>
