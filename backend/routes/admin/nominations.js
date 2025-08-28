@@ -2,6 +2,8 @@
 const express = require('express');
 const Nomination = require('../../models/Nomination');
 const { protect, editorAccess, adminOnly } = require('../../middleware/auth');
+const path = require('path');
+const fs = require('fs').promises;
 
 const router = express.Router();
 
@@ -49,7 +51,6 @@ router.get('/', async (req, res) => {
     const sortOptions = {};
     sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    // Execute query with pagination
     const skip = (page - 1) * parseInt(limit);
     
     const [nominations, totalCount] = await Promise.all([
@@ -62,20 +63,17 @@ router.get('/', async (req, res) => {
       Nomination.countDocuments(filter)
     ]);
 
-    // Calculate pagination info
     const totalPages = Math.ceil(totalCount / parseInt(limit));
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
 
-    // Get statistics for dashboard
-    const [statusStats, categoryStats] = await Promise.all([
-      Nomination.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } }
-      ]),
-      Nomination.aggregate([
-        { $group: { _id: '$awardCategory', count: { $sum: 1 } } }
-      ])
-    ]);
+    // Enhanced logging for image availability
+    nominations.forEach(nomination => {
+      console.log(`📋 Nomination ${nomination.submissionId} image sources:`, {
+        cloudinary: !!nomination.cloudinary?.photo?.url,
+        adminUrl: !!nomination.adminAccessUrls?.nomineePhoto,
+        localFile: !!nomination.files?.photo?.filename,
+        fileUrl: !!nomination.files?.photo?.url
+      });
+    });
 
     res.json({
       status: 'success',
@@ -84,26 +82,16 @@ router.get('/', async (req, res) => {
         currentPage: parseInt(page),
         totalPages,
         totalCount,
-        hasNextPage,
-        hasPrevPage,
+        hasNextPage: parseInt(page) < totalPages,
+        hasPrevPage: parseInt(page) > 1,
         limit: parseInt(limit)
-      },
-      statistics: {
-        byStatus: statusStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {}),
-        byCategory: categoryStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {})
       },
       data: {
         nominations
       }
     });
   } catch (error) {
-    console.error('Admin get nominations error:', error);
+    console.error('Get nominations error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to fetch nominations'
@@ -111,44 +99,56 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/admin/nominations/stats - Get nominations statistics for dashboard
+// GET /api/admin/nominations/stats - Get nomination statistics
 router.get('/stats', async (req, res) => {
   try {
-    const [
-      totalNominations,
-      pendingNominations,
-      approvedNominations,
-      rejectedNominations,
-      recentNominations,
-      categoryStats
-    ] = await Promise.all([
-      Nomination.countDocuments(),
-      Nomination.countDocuments({ 'adminReview.status': 'pending' }),
-      Nomination.countDocuments({ 'adminReview.status': 'approved' }),
-      Nomination.countDocuments({ 'adminReview.status': 'rejected' }),
-      Nomination.find()
-        .sort({ submittedAt: -1 })
-        .limit(5)
-        .select('submissionId nominee.firstName nominee.lastName awardCategory submittedAt adminReview.status')
-        .lean(),
-      Nomination.aggregate([
-        { $group: { _id: '$awardCategory', count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-      ])
+    const stats = await Nomination.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          pending: {
+            $sum: {
+              $cond: [
+                { $or: [
+                  { $eq: ['$adminReview.status', 'pending'] },
+                  { $eq: ['$adminReview.status', null] }
+                ]}, 
+                1, 
+                0
+              ]
+            }
+          },
+          approved: {
+            $sum: {
+              $cond: [{ $eq: ['$adminReview.status', 'approved'] }, 1, 0]
+            }
+          },
+          rejected: {
+            $sum: {
+              $cond: [{ $eq: ['$adminReview.status', 'rejected'] }, 1, 0]
+            }
+          },
+          needsInfo: {
+            $sum: {
+              $cond: [{ $eq: ['$adminReview.status', 'needs-info'] }, 1, 0]
+            }
+          }
+        }
+      }
     ]);
+
+    const result = stats[0] || {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      needsInfo: 0
+    };
 
     res.json({
       status: 'success',
-      data: {
-        overview: {
-          total: totalNominations,
-          pending: pendingNominations,
-          approved: approvedNominations,
-          rejected: rejectedNominations
-        },
-        recent: recentNominations,
-        categoryBreakdown: categoryStats
-      }
+      data: result
     });
   } catch (error) {
     console.error('Nominations stats error:', error);
@@ -172,6 +172,13 @@ router.get('/:id', async (req, res) => {
         message: 'Nomination not found'
       });
     }
+
+    // Enhanced logging for single nomination image data
+    console.log(`🔍 Single nomination ${nomination.submissionId} image details:`, {
+      cloudinary: nomination.cloudinary?.photo,
+      adminAccessUrls: nomination.adminAccessUrls,
+      files: nomination.files?.photo
+    });
 
     res.json({
       status: 'success',
@@ -246,6 +253,8 @@ router.patch('/:id/status', async (req, res) => {
 
     await nomination.save();
 
+    console.log(`✅ Nomination ${nomination.submissionId} status updated to: ${status}`);
+
     // TODO: Send email notification if requested
     if (sendNotification) {
       console.log('📧 Email notification requested for:', nomination.nominator.email);
@@ -267,9 +276,163 @@ router.patch('/:id/status', async (req, res) => {
 
   } catch (error) {
     console.error('Update nomination status error:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid nomination ID'
+      });
+    }
+    
     res.status(500).json({
       status: 'error',
       message: 'Failed to update nomination status'
+    });
+  }
+});
+
+// DELETE /api/admin/nominations/:id - Delete nomination with file cleanup
+router.delete('/:id', adminOnly, async (req, res) => {
+  try {
+    const nominationId = req.params.id;
+    console.log('🗑️ Admin deleting nomination:', nominationId);
+
+    // Find the nomination first to get file information
+    const nomination = await Nomination.findById(nominationId);
+    
+    if (!nomination) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Nomination not found'
+      });
+    }
+
+    console.log('📋 Found nomination to delete:', {
+      id: nomination.submissionId,
+      nominee: `${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`,
+      hasCloudinaryPhoto: !!nomination.cloudinary?.photo?.publicId,
+      hasLocalFiles: !!nomination.files?.photo?.filename
+    });
+
+    // Step 1: Delete from Cloudinary if exists
+    const cloudinaryDeletions = [];
+    
+    if (nomination.cloudinary?.photo?.publicId) {
+      try {
+        const { deleteFromCloudinary } = require('../../utils/cloudinaryUtils');
+        const deleteResult = await deleteFromCloudinary(nomination.cloudinary.photo.publicId);
+        
+        if (deleteResult.success) {
+          cloudinaryDeletions.push(`Photo: ${nomination.cloudinary.photo.publicId}`);
+          console.log('☁️ ✅ Deleted photo from Cloudinary');
+        } else {
+          console.warn('☁️ ⚠️ Failed to delete photo from Cloudinary');
+        }
+      } catch (cloudinaryError) {
+        console.error('☁️ ❌ Cloudinary deletion error:', cloudinaryError);
+      }
+    }
+
+    // Delete supporting files from Cloudinary
+    if (nomination.cloudinary?.supportingFiles?.length > 0) {
+      for (const file of nomination.cloudinary.supportingFiles) {
+        if (file.publicId) {
+          try {
+            const { deleteFromCloudinary } = require('../../utils/cloudinaryUtils');
+            const deleteResult = await deleteFromCloudinary(file.publicId);
+            
+            if (deleteResult.success) {
+              cloudinaryDeletions.push(`Supporting file: ${file.publicId}`);
+              console.log('☁️ ✅ Deleted supporting file from Cloudinary');
+            }
+          } catch (error) {
+            console.error('☁️ ❌ Failed to delete supporting file:', error);
+          }
+        }
+      }
+    }
+
+    // Step 2: Delete local files if they exist
+    const localDeletions = [];
+
+    if (nomination.files?.photo?.filename) {
+      try {
+        const photoPath = path.join(__dirname, '../../uploads/nominations', nomination.files.photo.filename);
+        await fs.unlink(photoPath);
+        localDeletions.push(`Photo: ${nomination.files.photo.filename}`);
+        console.log('🗂️ ✅ Deleted local photo file');
+      } catch (fileError) {
+        console.warn('🗂️ ⚠️ Failed to delete local photo:', fileError.message);
+      }
+    }
+
+    // Delete local supporting files
+    if (nomination.files?.supportingFiles?.length > 0) {
+      for (const file of nomination.files.supportingFiles) {
+        if (file.filename) {
+          try {
+            const filePath = path.join(__dirname, '../../uploads/nominations', file.filename);
+            await fs.unlink(filePath);
+            localDeletions.push(`Supporting file: ${file.filename}`);
+            console.log('🗂️ ✅ Deleted local supporting file');
+          } catch (error) {
+            console.warn('🗂️ ⚠️ Failed to delete local supporting file:', error);
+          }
+        }
+      }
+    }
+
+    // Step 3: Delete from MongoDB
+    await Nomination.findByIdAndDelete(nominationId);
+    console.log('🗄️ ✅ Deleted nomination from MongoDB');
+
+    // Step 4: Delete JSON backup file if it exists
+    try {
+      const backupPath = path.join(__dirname, '../../data/nominations', `nomination-${nomination.submissionId}.json`);
+      await fs.unlink(backupPath);
+      console.log('📄 ✅ Deleted JSON backup file');
+    } catch (backupError) {
+      console.warn('📄 ⚠️ JSON backup file not found or already deleted');
+    }
+
+    // Response with deletion summary
+    res.json({
+      status: 'success',
+      message: 'Nomination deleted successfully',
+      data: {
+        nominationId: nominationId,
+        submissionId: nomination.submissionId,
+        nominee: `${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`,
+        deletionSummary: {
+          database: true,
+          cloudinaryFiles: cloudinaryDeletions,
+          localFiles: localDeletions,
+          totalFilesDeleted: cloudinaryDeletions.length + localDeletions.length
+        }
+      }
+    });
+
+    console.log('✅ Nomination deletion completed:', {
+      id: nomination.submissionId,
+      cloudinaryDeleted: cloudinaryDeletions.length,
+      localFilesDeleted: localDeletions.length
+    });
+
+  } catch (error) {
+    console.error('❌ Admin delete nomination error:', error);
+    
+    // Handle specific MongoDB errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid nomination ID format'
+      });
+    }
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to delete nomination',
+      details: error.message
     });
   }
 });
@@ -294,59 +457,63 @@ router.post('/bulk-action', adminOnly, async (req, res) => {
       });
     }
 
-    let updateData = {};
-    let statusMessage = '';
+    let updatedCount = 0;
+    let errors = [];
 
-    switch (action) {
-      case 'approve':
-        updateData = {
-          'adminReview.reviewed': true,
-          'adminReview.reviewer': req.user._id,
-          'adminReview.reviewDate': new Date(),
-          'adminReview.status': 'approved',
-          'adminReview.notes': notes,
-          'status': 'under-review',
-          'phase': 'judging'
-        };
-        statusMessage = 'approved';
-        break;
-      case 'reject':
-        updateData = {
-          'adminReview.reviewed': true,
-          'adminReview.reviewer': req.user._id,
-          'adminReview.reviewDate': new Date(),
-          'adminReview.status': 'rejected',
-          'adminReview.notes': notes,
-          'status': 'rejected'
-        };
-        statusMessage = 'rejected';
-        break;
-      case 'delete':
-        const deleteResult = await Nomination.deleteMany({ _id: { $in: nominationIds } });
-        return res.json({
-          status: 'success',
-          message: `Successfully deleted ${deleteResult.deletedCount} nominations`,
-          data: { deletedCount: deleteResult.deletedCount }
-        });
+    if (action === 'delete') {
+      // Handle bulk deletion
+      for (const id of nominationIds) {
+        try {
+          const nomination = await Nomination.findById(id);
+          if (nomination) {
+            await Nomination.findByIdAndDelete(id);
+            updatedCount++;
+          }
+        } catch (error) {
+          errors.push(`Failed to delete ${id}: ${error.message}`);
+        }
+      }
+    } else {
+      // Handle bulk status updates
+      const statusMap = {
+        'approve': 'approved',
+        'reject': 'rejected'
+      };
+
+      const updateData = {
+        'adminReview.reviewed': true,
+        'adminReview.reviewer': req.user._id,
+        'adminReview.reviewDate': new Date(),
+        'adminReview.status': statusMap[action],
+        'adminReview.notes': notes
+      };
+
+      // Update main status based on action
+      if (action === 'approve') {
+        updateData.status = 'under-review';
+        updateData.phase = 'judging';
+      } else if (action === 'reject') {
+        updateData.status = 'rejected';
+      }
+
+      const result = await Nomination.updateMany(
+        { _id: { $in: nominationIds } },
+        updateData
+      );
+
+      updatedCount = result.modifiedCount;
     }
 
-    const updateResult = await Nomination.updateMany(
-      { _id: { $in: nominationIds } },
-      { $set: updateData }
-    );
-
-    // TODO: Send bulk email notifications if requested
-    if (sendNotifications && action !== 'delete') {
-      console.log(`📧 Bulk email notifications requested for ${nominationIds.length} nominations`);
-      // Implement bulk email service here
-    }
+    console.log(`✅ Bulk action ${action} completed: ${updatedCount} nominations affected`);
 
     res.json({
       status: 'success',
-      message: `Successfully ${statusMessage} ${updateResult.modifiedCount} nominations`,
+      message: `Bulk ${action} completed`,
       data: {
-        modifiedCount: updateResult.modifiedCount,
-        action: action
+        action,
+        updatedCount,
+        totalRequested: nominationIds.length,
+        errors: errors.length > 0 ? errors : undefined
       }
     });
 
@@ -359,41 +526,10 @@ router.post('/bulk-action', adminOnly, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/nominations/:id - Delete single nomination
-router.delete('/:id', adminOnly, async (req, res) => {
-  try {
-    const nomination = await Nomination.findById(req.params.id);
-    
-    if (!nomination) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Nomination not found'
-      });
-    }
-
-    // TODO: Delete associated files from storage
-    console.log('🗑️ TODO: Delete files for nomination:', nomination.submissionId);
-
-    await Nomination.findByIdAndDelete(req.params.id);
-
-    res.json({
-      status: 'success',
-      message: 'Nomination deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('Delete nomination error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to delete nomination'
-    });
-  }
-});
-
-// GET /api/admin/nominations/:id/files - Get nomination file URLs
+// GET /api/admin/nominations/:id/files - Get nomination file URLs (for debugging)
 router.get('/:id/files', async (req, res) => {
   try {
-    const nomination = await Nomination.findById(req.params.id).select('files submissionId').lean();
+    const nomination = await Nomination.findById(req.params.id).select('files cloudinary adminAccessUrls submissionId').lean();
     
     if (!nomination) {
       return res.status(404).json({
@@ -402,27 +538,55 @@ router.get('/:id/files', async (req, res) => {
       });
     }
 
-    const files = {
-      photo: nomination.files?.photo ? {
-        url: `${req.protocol}://${req.get('host')}${nomination.files.photo.url}`,
-        filename: nomination.files.photo.filename,
-        size: nomination.files.photo.size
-      } : null,
-      supportingFiles: nomination.files?.supportingFiles?.map(file => ({
-        url: `${req.protocol}://${req.get('host')}${file.url}`,
-        filename: file.filename,
-        size: file.size,
-        mimetype: file.mimetype
-      })) || []
+    // Build comprehensive file information
+    const fileInfo = {
+      submissionId: nomination.submissionId,
+      cloudinary: {
+        photo: nomination.cloudinary?.photo || null,
+        supportingFiles: nomination.cloudinary?.supportingFiles || []
+      },
+      local: {
+        photo: nomination.files?.photo ? {
+          filename: nomination.files.photo.filename,
+          url: `${req.protocol}://${req.get('host')}/uploads/nominations/${nomination.files.photo.filename}`,
+          size: nomination.files.photo.size,
+          mimetype: nomination.files.photo.mimetype
+        } : null,
+        supportingFiles: nomination.files?.supportingFiles?.map(file => ({
+          filename: file.filename,
+          url: `${req.protocol}://${req.get('host')}/uploads/nominations/${file.filename}`,
+          size: file.size,
+          mimetype: file.mimetype,
+          originalName: file.originalName
+        })) || []
+      },
+      adminAccessUrls: nomination.adminAccessUrls || {},
+      // Resolved URLs for direct use
+      resolvedUrls: {
+        photo: nomination.cloudinary?.photo?.url || 
+               nomination.adminAccessUrls?.nomineePhoto ||
+               (nomination.files?.photo?.filename ? 
+                 `${req.protocol}://${req.get('host')}/uploads/nominations/${nomination.files.photo.filename}` : 
+                 null),
+        supportingFiles: []
+      }
     };
 
     res.json({
       status: 'success',
-      data: { files }
+      data: { files: fileInfo }
     });
 
   } catch (error) {
     console.error('Get nomination files error:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid nomination ID'
+      });
+    }
+    
     res.status(500).json({
       status: 'error',
       message: 'Failed to fetch nomination files'

@@ -1,17 +1,16 @@
-// File path: src/components/admin/nominations/NominationsTable.jsx
-
+// File: frontend/src/components/admin/nominations/NominationsTable.jsx
 import React, { useState, useEffect } from 'react';
 import { 
-  Eye, CheckCircle, XCircle, Clock, AlertTriangle, User, Mail, Phone, 
-  MapPin, Award, Calendar, FileText, MoreHorizontal, ChevronLeft, 
-  ChevronRight, Check, X, Trash2, Download, Search, Filter, RefreshCw
+  Eye, Clock, CheckCircle, XCircle, Trash2, User, Mail, Phone, 
+  MapPin, Award, Search, Filter, ChevronLeft, ChevronRight,
+  AlertTriangle, ExternalLink, Download, Image as ImageIcon
 } from 'lucide-react';
 
 const NominationsTable = ({ 
   filters = {}, 
   onNominationClick, 
   onStatusUpdate, 
-  onBulkAction,
+  onDelete,
   refreshTrigger = 0 
 }) => {
   const [nominations, setNominations] = useState([]);
@@ -20,275 +19,255 @@ const NominationsTable = ({
   const [selectedItems, setSelectedItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [imageErrors, setImageErrors] = useState({});
   const itemsPerPage = 10;
 
-  // FIXED: Get proper image URL from your multiple storage systems
-  const getAccessibleImageUrl = (nomination) => {
-    const baseUrl = 'http://localhost:5000';
+  // FIXED: Enhanced image URL resolution based on your actual data structure
+  const getImageUrl = (nomination) => {
+    console.log('🖼️ Resolving image for nomination:', nomination.submissionId);
     
-    // Priority 1: Cloudinary URL (best)
+    // Priority 1: Cloudinary CDN URL (WORKS - you have this!)
     if (nomination.cloudinary?.photo?.url) {
+      console.log('✅ Using Cloudinary URL:', nomination.cloudinary.photo.url);
       return nomination.cloudinary.photo.url;
     }
     
-    // Priority 2: Admin access URLs (your working system)
+    // Priority 2: Cloudinary HTTPS URL (secure_url)
+    if (nomination.cloudinary?.photo?.secure_url) {
+      console.log('✅ Using Cloudinary HTTPS URL:', nomination.cloudinary.photo.secure_url);
+      return nomination.cloudinary.photo.secure_url;
+    }
+    
+    // Priority 3: Admin access URLs (currently empty but checking)
     if (nomination.adminAccessUrls?.nomineePhoto) {
-      return nomination.adminAccessUrls.nomineePhoto.startsWith('http') 
-        ? nomination.adminAccessUrls.nomineePhoto
-        : `${baseUrl}${nomination.adminAccessUrls.nomineePhoto}`;
+      const adminUrl = nomination.adminAccessUrls.nomineePhoto;
+      const fullUrl = adminUrl.startsWith('http') ? adminUrl : `http://localhost:5000${adminUrl}`;
+      console.log('✅ Using admin access URL:', fullUrl);
+      return fullUrl;
     }
     
-    // Priority 3: Local server file
+    // Priority 4: Local server file (WORKS - you have this!)
     if (nomination.files?.photo?.filename) {
-      return `${baseUrl}/uploads/nominations/${nomination.files.photo.filename}`;
+      const localUrl = `http://localhost:5000/uploads/nominations/${nomination.files.photo.filename}`;
+      console.log('✅ Using local file URL:', localUrl);
+      return localUrl;
     }
     
-    // Priority 4: Files URL (non-blob)
-    if (nomination.files?.photo?.url && !nomination.files.photo.url.startsWith('blob:')) {
-      return nomination.files.photo.url.startsWith('http') 
+    // Priority 5: File URL with proper base (WORKS - you have this!)
+    if (nomination.files?.photo?.url) {
+      const fileUrl = nomination.files.photo.url.startsWith('http') 
         ? nomination.files.photo.url 
-        : `${baseUrl}${nomination.files.photo.url}`;
+        : `http://localhost:5000${nomination.files.photo.url}`;
+      console.log('✅ Using file URL:', fileUrl);
+      return fileUrl;
     }
     
-    // Priority 5: Direct nomineePhoto field
-    if (nomination.nomineePhoto && !nomination.nomineePhoto.startsWith('blob:')) {
-      return nomination.nomineePhoto.startsWith('http') 
-        ? nomination.nomineePhoto 
-        : `${baseUrl}/uploads/nominations/${nomination.nomineePhoto}`;
-    }
-    
-    return null;
+    console.log('❌ No valid image URL found');
+    return 'https://via.placeholder.com/150x150?text=No+Image';
   };
 
-  // FIXED: Fetch nominations - try multiple endpoints
+  // FIXED: Handle missing image data gracefully
+  const handleImageError = (nominationId, imageUrl) => {
+    console.log(`❌ Image failed to load for ${nominationId}:`, imageUrl);
+    setImageErrors(prev => ({
+      ...prev,
+      [nominationId]: true
+    }));
+  };
+
+  // FIXED: Handle all possible object structures  
+  const formatField = (field) => {
+    if (!field) return 'Not provided';
+    if (typeof field === 'string') return field;
+    if (typeof field === 'object') {
+      // Handle school objects with name, level, grade
+      if (field.name || field.level || field.grade) {
+        const parts = [];
+        if (field.name) parts.push(field.name);
+        if (field.level) parts.push(field.level);
+        if (field.grade) parts.push(field.grade);
+        return parts.join(' - ') || 'Not provided';
+      }
+      // Handle location objects
+      if (field.county || field.subcounty || field.ward) {
+        const parts = [];
+        if (field.ward) parts.push(field.ward);
+        if (field.subcounty) parts.push(field.subcounty);
+        if (field.county) parts.push(field.county);
+        return parts.join(', ') || 'Not provided';
+      }
+      // Handle any other object safely
+      try {
+        return Object.values(field).filter(v => v).join(' - ') || 'Not provided';
+      } catch {
+        return 'Not provided';
+      }
+    }
+    return String(field);
+  };
+
+  // Fetch nominations with better error handling
   const fetchNominations = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('adminToken');
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: itemsPerPage.toString(),
         ...filters
       });
 
-      // Your backend has these possible endpoints
-      const endpoints = [
-        `http://localhost:5000/api/admin/nominations?${params}`,
-        `http://localhost:5000/api/admin/awards/nominations?${params}`,
-        `http://localhost:5000/api/nominations?${params}`
-      ];
-
-      let response;
-      let workingEndpoint;
-
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`🔍 Trying: ${endpoint}`);
-          
-          response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-              ...(token && { 'Authorization': `Bearer ${token}` }),
-              'Content-Type': 'application/json'
-            }
-          });
-
-          console.log(`📡 Response: ${response.status} from ${endpoint}`);
-
-          if (response.ok) {
-            workingEndpoint = endpoint;
-            break;
-          }
-        } catch (fetchError) {
-          console.log(`❌ Failed: ${endpoint} - ${fetchError.message}`);
-          continue;
-        }
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Admin session expired. Please login again.');
       }
 
-      if (!response || !response.ok) {
-        throw new Error(`All endpoints failed. Status: ${response?.status || 'No response'}`);
+      console.log('📊 Fetching nominations with params:', Object.fromEntries(params));
+
+      const response = await fetch(`http://localhost:5000/api/admin/nominations?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('adminToken');
+          throw new Error('Session expired. Please log in again.');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(`✅ Success from: ${workingEndpoint}`, data);
-      
-      // Handle your backend response format
-      let nominationsArray = [];
-      
-      if (data.status === 'success') {
-        nominationsArray = data.data?.nominations || data.nominations || [];
-        if (data.data?.pagination || data.pagination) {
-          const pagination = data.data?.pagination || data.pagination;
-          setTotalPages(Math.ceil(pagination.totalCount / itemsPerPage));
-        }
-      } else if (Array.isArray(data)) {
-        nominationsArray = data;
-      } else if (data.nominations) {
-        nominationsArray = data.nominations;
-      }
+      console.log('✅ Fetched nominations:', data);
 
-      console.log(`📊 Loaded ${nominationsArray.length} nominations`);
-      setNominations(nominationsArray);
-      
-    } catch (err) {
-      console.error('💥 Fetch error:', err);
-      setError(err.message);
+      if (data.status === 'success' && data.data?.nominations) {
+        setNominations(data.data.nominations);
+        setTotalPages(data.pagination?.totalPages || 1);
+        
+        // Log image availability for debugging
+        data.data.nominations.forEach(nomination => {
+          console.log(`📋 Nomination ${nomination.submissionId} image status:`, {
+            hasCloudinary: !!nomination.cloudinary?.photo?.url,
+            hasAdminUrl: !!nomination.adminAccessUrls?.nomineePhoto,
+            hasLocalFile: !!nomination.files?.photo?.filename,
+            resolvedUrl: getImageUrl(nomination)
+          });
+        });
+      } else {
+        setNominations([]);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch nominations:', error);
+      setError(error.message);
       setNominations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch data when dependencies change
-  useEffect(() => {
-    fetchNominations();
-  }, [filters, refreshTrigger, currentPage]);
+  // Delete nomination
+  const handleDelete = async (nominationId) => {
+    if (!confirm('Are you sure you want to permanently delete this nomination? This action cannot be undone.')) {
+      return;
+    }
 
-  // Format date
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
     try {
-      return new Date(date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin/nominations/${nominationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-    } catch {
-      return 'Invalid Date';
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete nomination: ${response.status}`);
+      }
+
+      // Remove from local state
+      setNominations(prev => prev.filter(nom => nom._id !== nominationId));
+      
+      // Call parent callback if provided
+      if (onDelete) {
+        onDelete(nominationId);
+      }
+
+      console.log('✅ Nomination deleted successfully');
+    } catch (error) {
+      console.error('❌ Delete error:', error);
+      alert('Failed to delete nomination: ' + error.message);
     }
   };
 
-  // Status badge
-  const StatusBadge = ({ status }) => {
-    const configs = {
-      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Pending' },
-      approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'Approved' },
-      rejected: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Rejected' },
-      'needs-info': { color: 'bg-blue-100 text-blue-800', icon: AlertTriangle, label: 'Needs Info' }
-    };
-    
-    const config = configs[status] || configs.pending;
-    const Icon = config.icon;
+  // Status update
+  const handleStatusUpdate = async (nominationId, status, notes = '') => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`http://localhost:5000/api/admin/nominations/${nominationId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status, notes })
+      });
 
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-        <Icon className="w-3 h-3 mr-1" />
-        {config.label}
-      </span>
-    );
+      if (!response.ok) {
+        throw new Error(`Failed to update status: ${response.status}`);
+      }
+
+      // Refresh the nominations list
+      fetchNominations();
+      
+      if (onStatusUpdate) {
+        onStatusUpdate(nominationId, status);
+      }
+
+      console.log('✅ Status updated successfully');
+    } catch (error) {
+      console.error('❌ Status update error:', error);
+      alert('Failed to update status: ' + error.message);
+    }
   };
 
-  // FIXED: Photo component that actually works
-  const NomineePhoto = ({ nomination }) => {
-    const [imageError, setImageError] = useState(false);
-    const imageUrl = getAccessibleImageUrl(nomination);
-    
-    return (
-      <div className="flex items-center space-x-3">
-        <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden bg-gray-200">
-          {imageUrl && !imageError ? (
-            <img
-              src={imageUrl}
-              alt={nomination.nominee?.firstName || nomination.nomineeName || 'Nominee'}
-              className="h-10 w-10 rounded-full object-cover"
-              onError={() => {
-                console.log('❌ Image failed:', imageUrl);
-                setImageError(true);
-              }}
-              onLoad={() => console.log('✅ Image loaded:', imageUrl)}
-            />
-          ) : (
-            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm">
-              {(nomination.nominee?.firstName || nomination.nomineeName || 'N').charAt(0).toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-gray-900 truncate">
-            {nomination.nominee?.firstName ? 
-              `${nomination.nominee.firstName} ${nomination.nominee.lastName}` : 
-              nomination.nomineeName || 'Unknown'
-            }
-          </p>
-          <p className="text-sm text-gray-500 truncate">
-            {nomination.awardCategory || nomination.category || 'No category'}
-          </p>
-        </div>
-      </div>
-    );
+  // Status color helper
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
+      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
+      case 'needs-info': return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
-  // Actions menu
-  const ActionsMenu = ({ nomination }) => {
-    const [isOpen, setIsOpen] = useState(false);
-
-    return (
-      <div className="relative">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-1 rounded-full hover:bg-gray-100"
-        >
-          <MoreHorizontal className="w-4 h-4 text-gray-400" />
-        </button>
-
-        {isOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-            <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-md shadow-lg border">
-              <div className="py-1">
-                <button
-                  onClick={() => {
-                    onNominationClick(nomination);
-                    setIsOpen(false);
-                  }}
-                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Details
-                </button>
-                
-                {nomination.status !== 'approved' && (
-                  <button
-                    onClick={() => {
-                      onStatusUpdate(nomination._id, 'approved', '');
-                      setIsOpen(false);
-                    }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50"
-                  >
-                    <Check className="w-4 h-4 mr-2" />
-                    Approve
-                  </button>
-                )}
-                
-                {nomination.status !== 'rejected' && (
-                  <button
-                    onClick={() => {
-                      onStatusUpdate(nomination._id, 'rejected', '');
-                      setIsOpen(false);
-                    }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Reject
-                  </button>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    );
+  // Status icon helper
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending': return <Clock className="w-4 h-4" />;
+      case 'approved': return <CheckCircle className="w-4 h-4" />;
+      case 'rejected': return <XCircle className="w-4 h-4" />;
+      case 'needs-info': return <AlertTriangle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
   };
+
+  // Effects
+  useEffect(() => {
+    fetchNominations();
+  }, [currentPage, filters, refreshTrigger]);
 
   // Loading state
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-center">
-          <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-          <span className="text-gray-600">Loading nominations...</span>
+      <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading nominations...</span>
         </div>
       </div>
     );
@@ -297,16 +276,15 @@ const NominationsTable = ({
   // Error state
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6">
-        <div className="text-center">
-          <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-red-800 mb-2">Failed to Load Nominations</h3>
-          <p className="text-sm text-red-600 mb-4">{error}</p>
+      <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center py-12">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Nominations</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={fetchNominations}
-            className="inline-flex items-center px-4 py-2 bg-red-50 border border-red-300 text-red-700 text-sm font-medium rounded-md hover:bg-red-100"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
             Try Again
           </button>
         </div>
@@ -314,115 +292,190 @@ const NominationsTable = ({
     );
   }
 
+  // Empty state
+  if (nominations.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center py-12">
+          <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Nominations Found</h3>
+          <p className="text-gray-600">No nominations match your current filters.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      {/* Table Container - Added padding bottom for dropdown space */}
-      <div className="overflow-x-auto pb-32">
-        <table className="min-w-full divide-y divide-gray-200">
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Nominations ({nominations.length})
+          </h3>
+          <div className="text-sm text-gray-500">
+            Page {currentPage} of {totalPages}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Nominee
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Category
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">
-                Nominator
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">
-                Date
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Submitted
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase w-20">
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {nominations.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="px-6 py-8 text-center">
-                  <User className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-500">No nominations found</p>
-                  <button
-                    onClick={fetchNominations}
-                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    Refresh Data
-                  </button>
-                </td>
-              </tr>
-            ) : (
-              nominations.map((nomination) => (
+            {nominations.map((nomination) => {
+              const imageUrl = getImageUrl(nomination);
+              const hasImageError = imageErrors[nomination._id];
+              
+              return (
                 <tr key={nomination._id} className="hover:bg-gray-50">
+                  {/* Nominee Info */}
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <NomineePhoto nomination={nomination} />
-                  </td>
-                  
-                  <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                    <span className="text-sm font-medium text-gray-900">
-                      {nomination.awardCategory || nomination.category || 'No category'}
-                    </span>
-                  </td>
-                  
-                  <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                    <div>
-                      <p className="text-sm text-gray-900">
-                        {nomination.nominator?.firstName ? 
-                          `${nomination.nominator.firstName} ${nomination.nominator.lastName}` :
-                          nomination.nominatorName || 'Anonymous'
-                        }
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {nomination.nominator?.email || nomination.nominatorEmail || ''}
-                      </p>
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-12 w-12">
+                        {hasImageError ? (
+                          <div className="h-12 w-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <ImageIcon className="h-6 w-6 text-gray-400" />
+                          </div>
+                        ) : (
+                          <img
+                            src={imageUrl}
+                            alt={`${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`}
+                            className="h-12 w-12 rounded-lg object-cover border border-gray-200"
+                            onError={() => handleImageError(nomination._id, imageUrl)}
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {nomination.nominee?.firstName} {nomination.nominee?.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {formatField(nomination.nominee?.email)}
+                        </div>
+                      </div>
                     </div>
                   </td>
-                  
+
+                  {/* Category */}
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={nomination.adminReview?.status || nomination.status || 'pending'} />
+                    <div className="flex items-center">
+                      <Award className="h-4 w-4 text-purple-500 mr-2" />
+                      <span className="text-sm text-gray-900">
+                        {nomination.awardCategory || 'Not specified'}
+                      </span>
+                    </div>
                   </td>
-                  
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                    {formatDate(nomination.createdAt || nomination.submittedAt)}
+
+                  {/* Status */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(nomination.adminReview?.status || 'pending')}`}>
+                      {getStatusIcon(nomination.adminReview?.status || 'pending')}
+                      <span className="ml-1 capitalize">
+                        {nomination.adminReview?.status || 'pending'}
+                      </span>
+                    </span>
                   </td>
-                  
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <ActionsMenu nomination={nomination} />
+
+                  {/* Submitted Date */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(nomination.submittedAt || nomination.createdAt).toLocaleDateString()}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end space-x-2">
+                      {/* View Details */}
+                      <button
+                        onClick={() => onNominationClick && onNominationClick(nomination)}
+                        className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+
+                      {/* Quick Actions */}
+                      {nomination.adminReview?.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleStatusUpdate(nomination._id, 'approved')}
+                            className="text-green-600 hover:text-green-900 p-1 rounded transition-colors"
+                            title="Approve"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleStatusUpdate(nomination._id, 'rejected')}
+                            className="text-red-600 hover:text-red-900 p-1 rounded transition-colors"
+                            title="Reject"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+
+                      {/* Delete - Red Theme */}
+                      <button
+                        onClick={() => handleDelete(nomination._id)}
+                        className="text-red-600 hover:text-red-900 hover:bg-red-50 p-1 rounded transition-colors"
+                        title="Delete Nomination"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-white px-4 py-3 border-t border-gray-200">
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 text-sm border rounded disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 text-sm border rounded disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous
+            </button>
+
+            <span className="text-sm text-gray-700">
+              Showing page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </button>
           </div>
         </div>
       )}

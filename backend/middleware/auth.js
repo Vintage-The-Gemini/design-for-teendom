@@ -1,6 +1,6 @@
-// File: backend/middleware/auth.js
+// File: backend/middleware/auth.js - FIXED VERSION
+
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
 // Protect routes - require authentication
 const protect = async (req, res, next) => {
@@ -21,9 +21,30 @@ const protect = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'teendom-admin-secret-key');
+    console.log('🔍 Token decoded:', decoded);
 
-    // Get user from token
-    const user = await User.findById(decoded.id).select('-password');
+    // Import User model with fallback
+    let User;
+    try {
+      User = require('../models/User');
+    } catch (error) {
+      console.warn('⚠️ User model not available in middleware');
+      return res.status(503).json({
+        status: 'error',
+        message: 'Authentication service unavailable'
+      });
+    }
+
+    // Get user from token (handle both userId and id fields)
+    const userId = decoded.userId || decoded.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid token - no user ID found'
+      });
+    }
+
+    const user = await User.findById(userId).select('-password');
     
     if (!user) {
       return res.status(401).json({
@@ -32,7 +53,8 @@ const protect = async (req, res, next) => {
       });
     }
 
-    if (user.status !== 'active') {
+    // Check if user is active (if status field exists)
+    if (user.status && user.status !== 'active') {
       return res.status(401).json({
         status: 'error',
         message: 'Account is not active. Contact administrator.'
@@ -41,6 +63,7 @@ const protect = async (req, res, next) => {
 
     // Add user to request object
     req.user = user;
+    console.log('✅ User authenticated:', { id: user._id, email: user.email, role: user.role });
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
@@ -77,12 +100,14 @@ const authorize = (...roles) => {
     }
 
     if (!roles.includes(req.user.role)) {
+      console.log(`❌ Access denied: User role '${req.user.role}' not in required roles: [${roles.join(', ')}]`);
       return res.status(403).json({
         status: 'error',
         message: `Access denied. Required role: ${roles.join(' or ')}`
       });
     }
 
+    console.log(`✅ Role authorized: ${req.user.role} has access`);
     next();
   };
 };

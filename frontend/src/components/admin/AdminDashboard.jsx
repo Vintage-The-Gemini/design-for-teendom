@@ -1,24 +1,18 @@
 // File: frontend/src/components/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { useAdminAuth } from '../../contexts/AdminAuthContext';
-import adminApi from '../../services/adminApi';
 import { 
-  BarChart3, 
-  FileText, 
-  Users, 
-  Eye, 
-  Star, 
-  TrendingUp,
-  Calendar,
-  Activity,
-  AlertCircle,
-  CheckCircle
+  Users, FileText, Award, TrendingUp, Eye, Calendar, 
+  CheckCircle, Clock, AlertTriangle, BarChart3 
 } from 'lucide-react';
+import adminApi from '../../services/adminApi';
 
 const AdminDashboard = () => {
-  const { user } = useAdminAuth();
-  const [stats, setStats] = useState(null);
-  const [recentArticles, setRecentArticles] = useState([]);
+  const [dashboardData, setDashboardData] = useState({
+    nominations: { total: 0, pending: 0, approved: 0, rejected: 0 },
+    articles: { total: 0, published: 0, draft: 0, views: 0 },
+    categories: { total: 0 },
+    recentActivity: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -31,57 +25,117 @@ const AdminDashboard = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch article statistics
-      const statsResponse = await adminApi.getArticleStats();
-      setStats(statsResponse.data);
+      // Fetch nominations stats
+      let nominationStats = { total: 0, pending: 0, approved: 0, rejected: 0 };
+      try {
+        const nominationsResponse = await adminApi.getNominationStats();
+        if (nominationsResponse.status === 'success') {
+          nominationStats = nominationsResponse.data;
+        }
+      } catch (error) {
+        console.warn('Failed to fetch nomination stats:', error);
+      }
 
-      // Fetch recent articles
-      const articlesResponse = await adminApi.getArticles({ 
-        limit: 5, 
-        sortBy: 'createdAt', 
-        sortOrder: 'desc' 
+      // Try to fetch articles stats (may not exist)
+      let articleStats = { total: 0, published: 0, draft: 0, views: 0 };
+      try {
+        const articlesResponse = await adminApi.getArticles({ limit: 1 });
+        if (articlesResponse.status === 'success') {
+          articleStats.total = articlesResponse.totalCount || 0;
+        }
+      } catch (error) {
+        console.warn('Articles stats not available:', error);
+      }
+
+      // Try to fetch categories
+      let categoriesStats = { total: 0 };
+      try {
+        const categoriesResponse = await adminApi.getCategories();
+        if (categoriesResponse.status === 'success') {
+          categoriesStats.total = categoriesResponse.results || 0;
+        }
+      } catch (error) {
+        console.warn('Categories stats not available:', error);
+      }
+
+      setDashboardData({
+        nominations: nominationStats,
+        articles: articleStats,
+        categories: categoriesStats,
+        recentActivity: []
       });
-      setRecentArticles(articlesResponse.data.articles || []);
 
-    } catch (err) {
-      console.error('Dashboard data fetch error:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Dashboard data fetch error:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  };
+  const statsCards = [
+    {
+      title: 'Total Nominations',
+      value: dashboardData.nominations.total,
+      icon: <Users className="w-8 h-8" />,
+      color: 'blue',
+      change: '+12%'
+    },
+    {
+      title: 'Pending Review',
+      value: dashboardData.nominations.pending,
+      icon: <Clock className="w-8 h-8" />,
+      color: 'yellow',
+      change: '+5%'
+    },
+    {
+      title: 'Approved',
+      value: dashboardData.nominations.approved,
+      icon: <CheckCircle className="w-8 h-8" />,
+      color: 'green',
+      change: '+8%'
+    },
+    {
+      title: 'Articles',
+      value: dashboardData.articles.total,
+      icon: <FileText className="w-8 h-8" />,
+      color: 'purple',
+      change: '+3%'
+    }
+  ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-black text-gray-900">Dashboard</h1>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, index) => (
+            <div key={index} className="bg-white rounded-xl shadow-lg p-6">
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <div className="flex items-center space-x-3">
-          <AlertCircle className="w-6 h-6 text-red-600" />
-          <div>
-            <h3 className="font-bold text-red-900">Error Loading Dashboard</h3>
-            <p className="text-red-700">{error}</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-black text-gray-900">Dashboard</h1>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+            <span className="text-red-800">Error loading dashboard: {error}</span>
           </div>
         </div>
       </div>
@@ -89,263 +143,118 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-red-600 to-purple-600 rounded-2xl p-8 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 
-              className="text-3xl font-black mb-2"
-              style={{fontFamily: 'Playfair Display, serif'}}
-            >
-              {getGreeting()}, {user?.name}! 👋
-            </h1>
-            <p className="text-white/90 text-lg font-medium">
-              Welcome back to the Teendom Admin Panel
-            </p>
-            <div className="flex items-center space-x-4 mt-4 text-sm">
-              <div className="flex items-center space-x-2">
-                <Activity className="w-4 h-4" />
-                <span>Role: {user?.role}</span>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">Welcome to the Teendom Admin Panel</p>
+        </div>
+        
+        <button
+          onClick={fetchDashboardData}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+        >
+          <TrendingUp className="w-4 h-4 mr-2" />
+          Refresh
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statsCards.map((stat, index) => (
+          <div key={index} className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                <p className={`text-sm text-${stat.color}-600 mt-2`}>
+                  {stat.change} from last month
+                </p>
               </div>
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4" />
-                <span>Last login: {user?.lastLogin ? formatDate(user.lastLogin) : 'First time'}</span>
+              <div className={`p-3 bg-${stat.color}-100 rounded-lg text-${stat.color}-600`}>
+                {stat.icon}
               </div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-black text-white/20">
-              {new Date().getDate()}
+        ))}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="space-y-3">
+            <button className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+              <div className="flex items-center">
+                <Users className="w-5 h-5 text-blue-600 mr-3" />
+                <div>
+                  <p className="font-medium text-blue-900">Review Nominations</p>
+                  <p className="text-sm text-blue-700">{dashboardData.nominations.pending} pending review</p>
+                </div>
+              </div>
+            </button>
+            
+            <button className="w-full text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+              <div className="flex items-center">
+                <FileText className="w-5 h-5 text-green-600 mr-3" />
+                <div>
+                  <p className="font-medium text-green-900">Create Article</p>
+                  <p className="text-sm text-green-700">Write a new blog post</p>
+                </div>
+              </div>
+            </button>
+            
+            <button className="w-full text-left p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+              <div className="flex items-center">
+                <Award className="w-5 h-5 text-purple-600 mr-3" />
+                <div>
+                  <p className="font-medium text-purple-900">Manage Categories</p>
+                  <p className="text-sm text-purple-700">Add or edit categories</p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* System Status */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                <span className="font-medium text-green-900">Database</span>
+              </div>
+              <span className="text-green-600 text-sm">Online</span>
             </div>
-            <div className="text-white/80 font-semibold">
-              {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                <span className="font-medium text-green-900">File Storage</span>
+              </div>
+              <span className="text-green-600 text-sm">Available</span>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
+                <span className="font-medium text-yellow-900">Image CDN</span>
+              </div>
+              <span className="text-yellow-600 text-sm">Testing</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 font-semibold">Total Articles</p>
-                <p className="text-3xl font-black text-gray-900">{stats.stats.total}</p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <FileText className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-green-600 font-medium">All content</span>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 font-semibold">Published</p>
-                <p className="text-3xl font-black text-green-600">{stats.stats.published}</p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-gray-500">
-                {stats.stats.total > 0 ? Math.round((stats.stats.published / stats.stats.total) * 100) : 0}% of total
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 font-semibold">Featured</p>
-                <p className="text-3xl font-black text-yellow-600">{stats.stats.featured}</p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-full">
-                <Star className="w-6 h-6 text-yellow-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-gray-500">Highlighted content</span>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 font-semibold">Drafts</p>
-                <p className="text-3xl font-black text-orange-600">{stats.stats.drafts}</p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-full">
-                <FileText className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-gray-500">Unpublished content</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Articles */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-lg border border-gray-100">
-          <div className="p-6 border-b border-gray-100">
-            <h2 
-              className="text-xl font-black text-gray-900"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              Recent Articles
-            </h2>
-          </div>
-          <div className="p-6">
-            {recentArticles.length > 0 ? (
-              <div className="space-y-4">
-                {recentArticles.map((article) => (
-                  <div key={article._id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 mb-1">{article.title}</h3>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <span className="bg-gray-200 px-2 py-1 rounded text-xs font-medium">
-                          {article.category}
-                        </span>
-                        <span>{formatDate(article.createdAt)}</span>
-                        <div className="flex items-center space-x-1">
-                          <Eye className="w-3 h-3" />
-                          <span>{article.views || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {article.featured && (
-                        <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                      )}
-                      <div className={`w-3 h-3 rounded-full ${
-                        article.published ? 'bg-green-500' : 'bg-gray-400'
-                      }`}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No recent articles found</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Actions & Category Stats */}
-        <div className="space-y-6">
-          {/* Quick Actions */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100">
-            <div className="p-6 border-b border-gray-100">
-              <h2 
-                className="text-xl font-black text-gray-900"
-                style={{fontFamily: 'Space Grotesk, sans-serif'}}
-              >
-                Quick Actions
-              </h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white p-4 rounded-lg font-bold text-left flex items-center space-x-3 transition-colors">
-                <FileText className="w-5 h-5" />
-                <span>Create New Article</span>
-              </button>
-              
-              {user?.role === 'admin' && (
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg font-bold text-left flex items-center space-x-3 transition-colors">
-                  <Users className="w-5 h-5" />
-                  <span>Manage Users</span>
-                </button>
-              )}
-              
-              <button className="w-full bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg font-bold text-left flex items-center space-x-3 transition-colors">
-                <BarChart3 className="w-5 h-5" />
-                <span>View Analytics</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Category Statistics */}
-          {stats?.categoryStats && (
-            <div className="bg-white rounded-xl shadow-lg border border-gray-100">
-              <div className="p-6 border-b border-gray-100">
-                <h2 
-                  className="text-xl font-black text-gray-900"
-                  style={{fontFamily: 'Space Grotesk, sans-serif'}}
-                >
-                  Categories
-                </h2>
-              </div>
-              <div className="p-6">
-                <div className="space-y-3">
-                  {stats.categoryStats.slice(0, 5).map((category, index) => (
-                    <div key={category._id} className="flex items-center justify-between">
-                      <span className="font-medium text-gray-700">{category._id}</span>
-                      <div className="flex items-center space-x-2">
-                        <div className="bg-gray-200 rounded-full h-2 w-20">
-                          <div 
-                            className="bg-red-500 h-2 rounded-full"
-                            style={{
-                              width: `${Math.min((category.count / Math.max(...stats.categoryStats.map(c => c.count))) * 100, 100)}%`
-                            }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-bold text-gray-900 w-8 text-right">
-                          {category.count}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* System Status */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100">
-            <div className="p-6 border-b border-gray-100">
-              <h2 
-                className="text-xl font-black text-gray-900"
-                style={{fontFamily: 'Space Grotesk, sans-serif'}}
-              >
-                System Status
-              </h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">Backend API</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-green-600">Online</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">Database</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-green-600">Connected</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">File Storage</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-green-600">Available</span>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Recent Activity */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+        <div className="text-center py-8 text-gray-500">
+          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>No recent activity to display</p>
+          <p className="text-sm mt-1">Activity will appear here as users interact with the system</p>
         </div>
       </div>
     </div>

@@ -1,176 +1,227 @@
 // File: frontend/src/components/admin/AdminLogin.jsx
 import React, { useState } from 'react';
+import { Eye, EyeOff, Award, Lock, Mail, AlertTriangle } from 'lucide-react';
 import { useAdminAuth } from '../../contexts/AdminAuthContext';
-import { Eye, EyeOff, LogIn, Shield, AlertCircle } from 'lucide-react';
 
 const AdminLogin = () => {
+  const { login, loading, error } = useAdminAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
 
-  const { login, error } = useAdminAuth();
-
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: value
     }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    if (!formData.password.trim()) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 3) {
+      errors.password = 'Password must be at least 3 characters';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    const result = await login(formData.email, formData.password);
     
-    if (result.success) {
-      // Redirect will happen automatically via auth context
-      console.log('Login successful!');
+    if (!validateForm()) {
+      return;
     }
-    
-    setIsLoading(false);
-  };
 
-  const handleDemoLogin = () => {
-    setFormData({
-      email: 'admin@teendom.co.ke',
-      password: 'TeendomAdmin2024!'
+    console.log('🚀 Submitting login form with:', { 
+      email: formData.email, 
+      password: '[HIDDEN]' 
     });
+
+    try {
+      // FIXED: Pass the credentials as an object
+      const result = await login({
+        email: formData.email,
+        password: formData.password
+      });
+
+      if (result.success) {
+        console.log('✅ Login successful!');
+        // Navigation will be handled by the auth context
+      } else {
+        console.error('❌ Login failed:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Login error:', error);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-purple-700 to-blue-600 flex items-center justify-center p-6">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-yellow-400 rounded-full opacity-10 blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-400 rounded-full opacity-10 blur-3xl animate-pulse"></div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="bg-white/10 backdrop-blur-sm w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Shield className="w-10 h-10 text-white" />
+        <div className="text-center">
+          <div className="flex items-center justify-center mb-6">
+            <div className="flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full">
+              <Award className="w-8 h-8 text-white" />
+            </div>
           </div>
-          <h1 
-            className="text-4xl font-black text-white mb-2"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            Teendom Admin
-          </h1>
-          <p className="text-white/80 font-medium">
-            Content Management System
+          <h2 className="text-3xl font-black text-gray-900">
+            Admin Login
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Sign in to access the Teendom admin panel
           </p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
+            
+            {/* Global Error */}
             {error && (
-              <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 flex items-start space-x-3">
-                <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-red-100 font-medium text-sm">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+                  <span className="text-red-800 text-sm">{error}</span>
                 </div>
               </div>
             )}
 
-            {/* Demo Credentials */}
-            <div className="bg-blue-500/20 border border-blue-400/50 rounded-lg p-4">
-              <p className="text-blue-100 font-medium text-sm mb-2">Demo Credentials:</p>
-              <p className="text-blue-200 text-xs mb-1">Email: admin@teendom.co.ke</p>
-              <p className="text-blue-200 text-xs mb-3">Password: TeendomAdmin2024!</p>
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                className="text-blue-200 hover:text-white text-xs underline"
-              >
-                Click to use demo credentials
-              </button>
-            </div>
-
             {/* Email Field */}
             <div>
-              <label className="block text-white font-semibold mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
               </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all"
-                placeholder="Enter your admin email"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`
+                    w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors
+                    ${validationErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                  `}
+                  placeholder="admin@teendom.co.ke"
+                />
+              </div>
+              {validationErrors.email && (
+                <p className="mt-2 text-sm text-red-600">{validationErrors.email}</p>
+              )}
             </div>
 
             {/* Password Field */}
             <div>
-              <label className="block text-white font-semibold mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
               <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  id="password"
                   name="password"
-                  value={formData.password}
-                  onChange={handleChange}
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   required
-                  className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all pr-12"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`
+                    w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors
+                    ${validationErrors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                  `}
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  )}
                 </button>
               </div>
+              {validationErrors.password && (
+                <p className="mt-2 text-sm text-red-600">{validationErrors.password}</p>
+              )}
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-white text-red-600 py-3 px-6 rounded-lg font-black text-lg tracking-wide hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-white/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              disabled={loading}
+              className={`
+                w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+                ${loading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+                }
+              `}
             >
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
-                  <span>Signing In...</span>
-                </>
+              {loading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Signing in...
+                </div>
               ) : (
-                <>
-                  <LogIn size={20} />
-                  <span>Sign In to Admin Panel</span>
-                </>
+                'Sign in to Admin Panel'
               )}
             </button>
-          </form>
 
-          {/* Footer */}
-          <div className="mt-6 pt-6 border-t border-white/20 text-center">
-            <p className="text-white/60 text-sm">
-              Teendom Africa Admin Portal
-            </p>
-            <p className="text-white/40 text-xs mt-1">
-              For authorized personnel only
-            </p>
+            {/* Test Credentials Helper */}
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">Test Credentials</h4>
+              <div className="text-sm text-blue-700 space-y-1">
+                <p><strong>Email:</strong> admin@teendom.co.ke</p>
+                <p><strong>Password:</strong> TeendomAdmin2024!</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData({
+                    email: 'admin@teendom.co.ke',
+                    password: 'TeendomAdmin2024!'
+                  });
+                }}
+                className="mt-2 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
+              >
+                Fill Test Credentials
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Help Text */}
-        <div className="text-center mt-6">
-          <p className="text-white/60 text-sm">
-            Need access? Contact the system administrator
-          </p>
-        </div>
+        </form>
       </div>
     </div>
   );

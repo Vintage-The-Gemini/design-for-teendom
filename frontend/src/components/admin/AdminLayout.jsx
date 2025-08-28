@@ -1,250 +1,212 @@
 // File: frontend/src/components/admin/AdminLayout.jsx
 import React, { useState } from 'react';
-import { useAdminAuth } from '../../contexts/AdminAuthContext';
-import {
-  Home,
-  FileText,
-  Award,
-  Users,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  Calendar,
-  TrendingUp,
-  Folder,
-  UserCheck
+import { 
+  LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X,
+  Award, Folder, BarChart, Bell, Search, User
 } from 'lucide-react';
+import { useAdminAuth } from '../../contexts/AdminAuthContext';
 
-const AdminLayout = ({ children, currentView, setCurrentView }) => {
+const AdminLayout = ({ children, activeSection, onSectionChange }) => {
   const { user, logout } = useAdminAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menuItems = [
     {
       id: 'dashboard',
-      label: 'Dashboard',
-      icon: Home,
-      color: 'text-gray-600',
-      hoverColor: 'hover:text-red-600'
+      name: 'Dashboard',
+      icon: <LayoutDashboard className="w-5 h-5" />,
+      description: 'Overview and statistics'
     },
     {
       id: 'nominations',
-      label: 'Nominations',
-      icon: Award,
-      color: 'text-gray-600',
-      hoverColor: 'hover:text-red-600',
-      badge: 'NEW'
+      name: 'Nominations',
+      icon: <Users className="w-5 h-5" />,
+      description: 'Manage award nominations',
+      badge: '12' // Could be dynamic
     },
     {
       id: 'articles',
-      label: 'Articles',
-      icon: FileText,
-      color: 'text-gray-600',
-      hoverColor: 'hover:text-red-600'
+      name: 'Articles',
+      icon: <FileText className="w-5 h-5" />,
+      description: 'Blog posts and content'
     },
     {
       id: 'categories',
-      label: 'Categories',
-      icon: Folder,
-      color: 'text-gray-600',
-      hoverColor: 'hover:text-red-600'
-    },
-    {
-      id: 'awards',
-      label: 'Awards',
-      icon: Calendar,
-      color: 'text-gray-600',
-      hoverColor: 'hover:text-red-600'
-    },
-    {
-      id: 'users',
-      label: 'Users',
-      icon: Users,
-      color: 'text-gray-600',
-      hoverColor: 'hover:text-red-600',
-      adminOnly: true
+      name: 'Categories',
+      icon: <Folder className="w-5 h-5" />,
+      description: 'Content categories'
     },
     {
       id: 'settings',
-      label: 'Settings',
-      icon: Settings,
-      color: 'text-gray-600',
-      hoverColor: 'hover:text-red-600'
+      name: 'Settings',
+      icon: <Settings className="w-5 h-5" />,
+      description: 'System configuration'
     }
   ];
 
-  const handleMenuClick = (itemId) => {
-    setCurrentView(itemId);
-    setSidebarOpen(false);
+  const handleMenuClick = (sectionId) => {
+    console.log('Menu clicked:', sectionId);
+    onSectionChange(sectionId); // FIXED: Was setCurrentView, now onSectionChange
+    setSidebarOpen(false); // Close mobile sidebar
   };
 
-  const handleLogout = () => {
-    logout();
-  };
-
-  const getPageTitle = () => {
-    const currentItem = menuItems.find(item => item.id === currentView);
-    return currentItem ? currentItem.label : 'Dashboard';
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      try {
+        await logout();
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Mobile sidebar overlay */}
+      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
-        />
+        >
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-75"></div>
+        </div>
       )}
 
       {/* Sidebar */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform 
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-        lg:translate-x-0 transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out
+        lg:translate-x-0 lg:static lg:inset-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 bg-red-600 text-white">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <span className="text-red-600 font-black text-lg">T</span>
+        <div className="flex flex-col h-full">
+          {/* Logo/Header */}
+          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
+            <div className="flex items-center">
+              <Award className="h-8 w-8 text-blue-600" />
+              <span className="ml-2 text-xl font-black text-gray-900">Teendom</span>
             </div>
-            <div>
-              <div className="text-lg font-black" style={{fontFamily: 'Space Grotesk, sans-serif'}}>
-                Teendom
-              </div>
-              <div className="text-xs text-red-100">Admin Panel</div>
-            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-6 w-6" />
+            </button>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-white hover:text-red-200 p-1"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* User info */}
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-red-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-gray-900 truncate">
-                {user?.name || 'Admin User'}
+          {/* User Info */}
+          <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+                  <User className="h-6 w-6 text-white" />
+                </div>
               </div>
-              <div className="text-xs text-gray-500 truncate">
-                {user?.email}
-              </div>
-              <div className="text-xs text-red-600 font-medium capitalize">
-                {user?.role || 'admin'}
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">{user?.name || 'Admin User'}</p>
+                <p className="text-xs text-blue-600 capitalize">{user?.role || 'admin'}</p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          {menuItems.map((item) => {
-            // Hide admin-only items for non-admin users
-            if (item.adminOnly && user?.role !== 'admin') return null;
-
-            const Icon = item.icon;
-            const isActive = currentView === item.id;
-
-            return (
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {menuItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleMenuClick(item.id)}
                 className={`
-                  w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200
-                  ${isActive 
-                    ? 'bg-red-600 text-white shadow-md' 
-                    : `${item.color} ${item.hoverColor} hover:bg-red-50`
+                  w-full flex items-center px-3 py-3 rounded-lg text-left transition-colors duration-200
+                  ${activeSection === item.id
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'text-gray-700 hover:bg-gray-100'
                   }
                 `}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span className="flex-1 font-medium">{item.label}</span>
-                {item.badge && !isActive && (
-                  <span className="px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
-                    {item.badge}
-                  </span>
-                )}
-                {isActive && (
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                )}
+                <div className={`
+                  flex-shrink-0 ${activeSection === item.id ? 'text-blue-600' : 'text-gray-500'}
+                `}>
+                  {item.icon}
+                </div>
+                <div className="ml-3 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{item.name}</span>
+                    {item.badge && (
+                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{item.description}</p>
+                </div>
               </button>
-            );
-          })}
-        </nav>
+            ))}
+          </nav>
 
-        {/* Logout */}
-        <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">Sign Out</span>
-          </button>
+          {/* Bottom Actions */}
+          <div className="p-4 border-t border-gray-200">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center px-3 py-3 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors duration-200"
+            >
+              <LogOut className="w-5 h-5 text-gray-500" />
+              <span className="ml-3 text-sm font-medium">Sign Out</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        {/* Top Bar */}
+        <header className="bg-white shadow-sm border-b border-gray-200">
+          <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-gray-600 hover:text-gray-900 p-2 -ml-2"
+                className="lg:hidden text-gray-500 hover:text-gray-700 mr-4"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="h-6 w-6" />
               </button>
               
-              <div>
-                <h1 className="text-2xl font-black text-gray-900" style={{fontFamily: 'Space Grotesk, sans-serif'}}>
-                  {getPageTitle()}
+              <div className="hidden sm:block">
+                <h1 className="text-lg font-semibold text-gray-900 capitalize">
+                  {activeSection.replace('-', ' ')}
                 </h1>
-                <p className="text-sm text-gray-600 mt-0.5">
-                  Manage your {getPageTitle().toLowerCase()} here
-                </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Quick stats */}
-              <div className="hidden md:flex items-center space-x-6 text-sm">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">0</div>
-                  <div className="text-gray-500">Nominations</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">0</div>
-                  <div className="text-gray-500">Articles</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">7</div>
-                  <div className="text-gray-500">Categories</div>
+              {/* Search */}
+              <div className="hidden md:block">
+                <div className="relative">
+                  <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
                 </div>
               </div>
 
-              {/* Status indicator */}
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">System Online</span>
+              {/* Notifications */}
+              <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+              </button>
+
+              {/* User Menu */}
+              <div className="flex items-center text-sm">
+                <span className="hidden sm:inline text-gray-700">
+                  {user?.email}
+                </span>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="p-6">
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6 lg:p-8">
             {children}
           </div>
         </main>

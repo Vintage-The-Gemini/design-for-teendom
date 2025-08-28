@@ -17,116 +17,89 @@ export const AdminAuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check if user is authenticated on app load
+  // Check authentication status on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        if (adminApi.isAuthenticated()) {
-          const response = await adminApi.getCurrentUser();
-          setUser(response.data.user);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        adminApi.removeToken();
-      } finally {
-        setLoading(false);
-      }
-    };
-
     checkAuth();
   }, []);
 
-  // Login function
-  const login = async (email, password) => {
+  const checkAuth = async () => {
     try {
-      setError(null);
       setLoading(true);
-
-      const response = await adminApi.login(email, password);
+      setError(null);
       
-      if (response.data?.user) {
-        setUser(response.data.user);
-        return { success: true, user: response.data.user };
+      if (!adminApi.isAuthenticated()) {
+        setUser(null);
+        setLoading(false);
+        return;
       }
-      
-      throw new Error('Login failed - no user data received');
+
+      // Verify token with backend
+      const response = await adminApi.verifyToken();
+      if (response.status === 'success' && response.user) {
+        setUser(response.user);
+        console.log('✅ Admin authenticated:', response.user.email);
+      } else {
+        setUser(null);
+        adminApi.removeToken();
+      }
     } catch (error) {
-      const errorMessage = error.message || 'Login failed';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
+      console.error('Auth check failed:', error);
+      setUser(null);
+      adminApi.removeToken();
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Logout function
+  const login = async (credentials) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔐 Attempting admin login...');
+      
+      const response = await adminApi.login(credentials);
+      
+      if (response.status === 'success' && response.user) {
+        setUser(response.user);
+        console.log('✅ Admin login successful:', response.user.email);
+        return { success: true, user: response.user };
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('❌ Admin login failed:', error);
+      setError(error.message);
+      setUser(null);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     try {
       await adminApi.logout();
       setUser(null);
       setError(null);
+      console.log('✅ Admin logged out');
     } catch (error) {
       console.error('Logout error:', error);
       // Force logout even if API call fails
-      adminApi.removeToken();
       setUser(null);
+      adminApi.removeToken();
     }
   };
-
-  // Update user profile
-  const updateProfile = async (profileData) => {
-    try {
-      const response = await adminApi.updateProfile(profileData);
-      if (response.data?.user) {
-        setUser(response.data.user);
-      }
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
-  // Change password
-  const changePassword = async (currentPassword, newPassword) => {
-    try {
-      await adminApi.changePassword(currentPassword, newPassword);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
-
-  // Check if user has specific role
-  const hasRole = (role) => {
-    if (!user) return false;
-    if (Array.isArray(role)) {
-      return role.includes(user.role);
-    }
-    return user.role === role;
-  };
-
-  // Check if user is admin
-  const isAdmin = () => hasRole('admin');
-
-  // Check if user can edit (admin or editor)
-  const canEdit = () => hasRole(['admin', 'editor']);
-
-  // Check if user is judge
-  const isJudge = () => hasRole('judge');
 
   const value = {
     user,
     loading,
     error,
+    isAuthenticated: !!user,
     login,
     logout,
-    updateProfile,
-    changePassword,
-    hasRole,
-    isAdmin,
-    canEdit,
-    isJudge,
-    isAuthenticated: !!user,
+    checkAuth
   };
 
   return (
