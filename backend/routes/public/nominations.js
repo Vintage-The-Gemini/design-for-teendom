@@ -1,4 +1,5 @@
-// File: backend/routes/public/nominations.js
+// File path: backend/routes/public/nominations.js
+
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
@@ -92,6 +93,8 @@ router.post('/',
         nominationData = req.body;
       }
       
+      console.log('📋 Original nomination data:', nominationData);
+      
       // FIXED: File upload handling - ensures REAL URLs are saved, never blob URLs
       let uploadedFiles = { photo: null, supportingFiles: [] };
       let cloudinaryUploads = { photo: null, supportingFiles: [] };
@@ -167,12 +170,27 @@ router.post('/',
         }
       }
       
+      // *** CRITICAL FIX: Replace blob URL with real Cloudinary URL ***
+      if (nominationData.nominee && nominationData.nominee.photo && 
+          nominationData.nominee.photo.startsWith('blob:') && 
+          cloudinaryUploads.photo?.url) {
+        console.log('🔧 FIXING: Replacing blob URL with Cloudinary URL');
+        console.log('🔴 Old blob URL:', nominationData.nominee.photo);
+        nominationData.nominee.photo = cloudinaryUploads.photo.url;
+        console.log('🟢 New Cloudinary URL:', nominationData.nominee.photo);
+      } else if (nominationData.nominee && nominationData.nominee.photo && 
+                 nominationData.nominee.photo.startsWith('blob:') && 
+                 uploadedFiles.photo?.url) {
+        console.log('🔧 FIXING: Replacing blob URL with server URL');
+        nominationData.nominee.photo = `http://localhost:5000${uploadedFiles.photo.url}`;
+      }
+      
       // FIXED: Prepare nomination record with REAL URLs only
       const nominationRecord = {
         submissionId: submissionId,
         ...nominationData,
         
-        // CRITICAL FIX: Save REAL URLs that admins can access
+        // CRITICAL: Save REAL URLs that admins can access
         files: {
           photo: uploadedFiles.photo, // Contains REAL server URL
           supportingFiles: uploadedFiles.supportingFiles // Contains REAL server URLs
@@ -195,6 +213,13 @@ router.post('/',
         }
       };
       
+      console.log('💾 Final nomination record to save:', {
+        submissionId: nominationRecord.submissionId,
+        nomineePhoto: nominationRecord.nominee?.photo,
+        cloudinaryUrl: nominationRecord.cloudinary?.photo?.url,
+        adminAccessUrl: nominationRecord.adminAccessUrls?.nomineePhoto
+      });
+      
       // Save to database with REAL URLs
       let mongoId = null;
       let savedToMongo = false;
@@ -206,9 +231,12 @@ router.post('/',
           mongoId = savedNomination._id;
           savedToMongo = true;
           console.log('✅ Saved to MongoDB with REAL URLs:', mongoId);
-          console.log('🔍 Admin photo URL:', nominationRecord.adminAccessUrls.nomineePhoto);
+          console.log('🔍 Admin photo URL saved:', nominationRecord.adminAccessUrls.nomineePhoto);
         } catch (mongoSaveError) {
           console.error('❌ MongoDB save failed:', mongoSaveError.message);
+          if (mongoSaveError.errors) {
+            console.error('🔍 Validation errors:', Object.keys(mongoSaveError.errors));
+          }
         }
       }
       
@@ -242,7 +270,8 @@ router.post('/',
               cloudinary: cloudinaryUploads.photo?.url || null,
               local: uploadedFiles.photo?.filename || null,
               // This is what admins will see:
-              adminUrl: cloudinaryUploads.photo?.url || (uploadedFiles.photo ? `/uploads/nominations/${uploadedFiles.photo.filename}` : null)
+              adminUrl: cloudinaryUploads.photo?.url || (uploadedFiles.photo ? 
+                `http://localhost:5000/uploads/nominations/${uploadedFiles.photo.filename}` : null)
             },
             supportingFiles: {
               cloudinary: cloudinaryUploads.supportingFiles.length,
@@ -267,64 +296,10 @@ router.post('/',
 router.get('/health', (req, res) => {
   res.json({
     status: 'success',
-    message: 'Nominations API is healthy - FIXED VERSION',
-    timestamp: new Date().toISOString(),
-    features: {
-      cloudinary: !!cloudinaryUtils,
-      database: !!Nomination,
-      fileStorage: fs.existsSync(nominationsDir)
-    }
+    message: 'Nominations API is healthy',
+    cloudinary: !!cloudinaryUtils,
+    database: !!Nomination
   });
-});
-
-// Get submission status
-router.get('/status/:submissionId', async (req, res) => {
-  try {
-    const { submissionId } = req.params;
-    
-    if (Nomination) {
-      const nomination = await Nomination.findOne({ submissionId }).lean();
-      if (nomination) {
-        return res.json({
-          status: 'success',
-          data: {
-            submissionId: nomination.submissionId,
-            status: nomination.status,
-            submittedAt: nomination.submittedAt,
-            // FIXED: Return admin-accessible URLs
-            adminPhotoUrl: nomination.adminAccessUrls?.nomineePhoto
-          }
-        });
-      }
-    }
-    
-    // Check backup files
-    const backupPath = path.join(nominationsDir, `nomination-${submissionId}.json`);
-    if (fs.existsSync(backupPath)) {
-      const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      return res.json({
-        status: 'success',
-        data: {
-          submissionId: backupData.submissionId,
-          status: backupData.status,
-          submittedAt: backupData.submittedAt,
-          source: 'backup'
-        }
-      });
-    }
-    
-    res.status(404).json({
-      status: 'error',
-      message: 'Submission not found'
-    });
-    
-  } catch (error) {
-    console.error('Status check error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to check submission status'
-    });
-  }
 });
 
 module.exports = router;

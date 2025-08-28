@@ -1,4 +1,5 @@
-// File: frontend/src/components/admin/NominationsManager.jsx
+// File path: src/components/admin/nominations/NominationsManager.jsx
+
 import { useState, useCallback } from 'react';
 import NominationsStatsHeader from './NominationsStatsHeader';
 import NominationsFilters from './NominationsFilters';
@@ -34,10 +35,17 @@ const NominationsManager = () => {
     setSelectedNomination(null);
   };
 
-  // Handle status update
-  const handleStatusUpdate = async (nominationId, newStatus, notes) => {
+  // FIXED: Handle status update with proper error handling
+  const handleStatusUpdate = async (nominationId, newStatus, notes = '') => {
     try {
       const token = localStorage.getItem('adminToken');
+      
+      if (!token) {
+        throw new Error('Admin token not found. Please log in again.');
+      }
+
+      console.log(`🔄 Updating nomination ${nominationId} to ${newStatus}`);
+      
       const response = await fetch(`http://localhost:5000/api/admin/nominations/${nominationId}/status`, {
         method: 'PATCH',
         headers: {
@@ -65,24 +73,33 @@ const NominationsManager = () => {
         // Show success message
         const statusText = newStatus === 'approved' ? 'approved' : 
                           newStatus === 'rejected' ? 'rejected' : 
-                          newStatus === 'needs-info' ? 'flagged for more info' : 'updated';
+                          newStatus === 'needs-info' ? 'flagged for more info' : 
+                          newStatus;
         
-        alert(`✅ Nomination ${statusText} successfully!`);
+        alert(`✅ Successfully ${statusText} nomination!`);
       } else {
-        throw new Error(data.message || 'Failed to update nomination status');
+        throw new Error(data.message || 'Failed to update status');
       }
     } catch (error) {
-      console.error('Error updating nomination status:', error);
+      console.error('❌ Status update error:', error);
       alert(`❌ Error: ${error.message}`);
       throw error;
     }
   };
 
-  // Handle nomination deletion
-  const handleDelete = async (nominationId) => {
+  // FIXED: Handle delete with proper confirmation
+  const handleDelete = async (nomination) => {
+    const nomineName = nomination.nominee?.firstName ? 
+      `${nomination.nominee.firstName} ${nomination.nominee.lastName}` : 
+      nomination.nomineeName || 'this nomination';
+      
+    if (!window.confirm(`Are you sure you want to delete the nomination for ${nomineName}?`)) {
+      return;
+    }
+
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/nominations/${nominationId}`, {
+      const response = await fetch(`http://localhost:5000/api/admin/nominations/${nomination._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -92,33 +109,43 @@ const NominationsManager = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(errorData.message || 'Failed to delete nomination');
       }
 
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        // Success - refresh components
-        triggerRefresh();
-        alert('✅ Nomination deleted successfully!');
-      } else {
-        throw new Error(data.message || 'Failed to delete nomination');
+      // Success - refresh and close modal if this nomination was open
+      triggerRefresh();
+      if (selectedNomination?._id === nomination._id) {
+        setShowDetailModal(false);
+        setSelectedNomination(null);
       }
+      
+      alert(`✅ Successfully deleted nomination for ${nomineName}`);
     } catch (error) {
-      console.error('Error deleting nomination:', error);
-      alert(`❌ Error: ${error.message}`);
-      throw error;
+      console.error('❌ Delete error:', error);
+      alert(`❌ Error deleting nomination: ${error.message}`);
     }
   };
 
-  // Handle bulk actions
+  // FIXED: Handle bulk actions
   const handleBulkAction = async (nominationIds, action) => {
     try {
+      const token = localStorage.getItem('adminToken');
+      
       if (!nominationIds || nominationIds.length === 0) {
-        throw new Error('No nominations selected');
+        alert('Please select nominations first');
+        return;
       }
 
-      const token = localStorage.getItem('adminToken');
+      const actionText = action === 'approve' ? 'approve' : 
+                        action === 'reject' ? 'reject' : 
+                        action === 'delete' ? 'delete' : action;
+
+      if (!window.confirm(`Are you sure you want to ${actionText} ${nominationIds.length} nomination(s)?`)) {
+        return;
+      }
+
+      console.log(`🔄 Bulk ${action} for ${nominationIds.length} nominations`);
+
       const response = await fetch('http://localhost:5000/api/admin/nominations/bulk-action', {
         method: 'POST',
         headers: {
@@ -128,7 +155,7 @@ const NominationsManager = () => {
         body: JSON.stringify({
           nominationIds: nominationIds,
           action: action,
-          notes: `Bulk ${action} action performed`,
+          notes: `Bulk ${action} action`,
           sendNotifications: true
         })
       });
@@ -153,7 +180,7 @@ const NominationsManager = () => {
         throw new Error(data.message || 'Failed to perform bulk action');
       }
     } catch (error) {
-      console.error('Error performing bulk action:', error);
+      console.error('❌ Bulk action error:', error);
       alert(`❌ Error: ${error.message}`);
       throw error;
     }

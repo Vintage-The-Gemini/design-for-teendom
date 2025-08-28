@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix Blob URLs - Teendom Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { background: #e53e3e; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 10px 0; }
+        button:hover { background: #c53030; }
+        .success { background: #c6f6d5; color: #2f855a; padding: 15px; border-radius: 6px; margin: 10px 0; }
+        .error { background: #fed7d7; color: #c53030; padding: 15px; border-radius: 6px; margin: 10px 0; }
+        .loading { background: #bee3f8; color: #3182ce; padding: 15px; border-radius: 6px; margin: 10px 0; }
+        .result { background: #f7fafc; padding: 10px; margin: 5px 0; border-left: 4px solid #4299e1; border-radius: 4px; }
+        pre { background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+        h1 { color: #2d3748; }
+        h2 { color: #4a5568; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fix Blob URLs - Teendom Admin Panel</h1>
+        <p>This tool will fix all nominations that have blob URLs instead of real Cloudinary URLs.</p>
+        
+        <button onclick="fixBlobUrls()">Fix All Blob URLs Now</button>
+        
+        <div id="status"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function fixBlobUrls() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            statusDiv.innerHTML = '<div class="loading">Fixing blob URLs... Please wait.</div>';
+            resultsDiv.innerHTML = '';
+            
+            try {
+                // Step 1: Get nominations with blob URLs
+                console.log('Fetching nominations with blob URLs...');
+                
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('http://localhost:5000/api/admin/nominations', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch nominations: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const nominations = data.data?.nominations || data.nominations || [];
+                
+                console.log(`Found ${nominations.length} total nominations`);
+                
+                // Filter nominations with blob URLs
+                const blobNominations = nominations.filter(n => 
+                    n.nominee?.photo && n.nominee.photo.startsWith('blob:')
+                );
+                
+                console.log(`Found ${blobNominations.length} nominations with blob URLs`);
+                
+                if (blobNominations.length === 0) {
+                    statusDiv.innerHTML = '<div class="success">No nominations with blob URLs found. All good!</div>';
+                    return;
+                }
+                
+                statusDiv.innerHTML = `<div class="loading">Found ${blobNominations.length} nominations to fix. Processing...</div>`;
+                
+                // Step 2: Fix each nomination
+                let fixed = 0;
+                let failed = 0;
+                let results = [];
+                
+                for (const nomination of blobNominations) {
+                    try {
+                        const submissionId = nomination.submissionId;
+                        const timestamp = submissionId.split('-')[1];
+                        
+                        // Construct Cloudinary URL
+                        const cloudinaryUrl = `https://res.cloudinary.com/dbidxxqxr/image/upload/v${timestamp}/teendom-awards/nominees/nominee-${submissionId}-${timestamp}.jpg`;
+                        
+                        console.log(`Fixing ${submissionId}: ${cloudinaryUrl}`);
+                        
+                        // Update via API
+                        const updateResponse = await fetch(`http://localhost:5000/api/admin/nominations/${nomination._id}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                'nominee.photo': cloudinaryUrl,
+                                'cloudinary.photo': {
+                                    url: cloudinaryUrl,
+                                    publicId: `teendom-awards/nominees/nominee-${submissionId}-${timestamp}`,
+                                    cloudinary: true
+                                },
+                                'adminAccessUrls.nomineePhoto': cloudinaryUrl
+                            })
+                        });
+                        
+                        if (updateResponse.ok) {
+                            results.push({
+                                submissionId,
+                                name: `${nomination.nominee.firstName} ${nomination.nominee.lastName}`,
+                                status: 'Fixed',
+                                newUrl: cloudinaryUrl
+                            });
+                            fixed++;
+                        } else {
+                            throw new Error(`Update failed: ${updateResponse.status}`);
+                        }
+                        
+                    } catch (error) {
+                        console.error(`Failed to fix ${nomination.submissionId}:`, error);
+                        results.push({
+                            submissionId: nomination.submissionId,
+                            name: `${nomination.nominee?.firstName || 'Unknown'} ${nomination.nominee?.lastName || ''}`,
+                            status: 'Failed',
+                            error: error.message
+                        });
+                        failed++;
+                    }
+                }
+                
+                // Show results
+                statusDiv.innerHTML = `
+                    <div class="success">
+                        Completed! Fixed ${fixed} nominations, ${failed} failed.
+                    </div>
+                `;
+                
+                resultsDiv.innerHTML = `
+                    <h2>Results:</h2>
+                    ${results.map(r => `
+                        <div class="result">
+                            <strong>${r.name}</strong> (${r.submissionId})<br>
+                            Status: <strong style="color: ${r.status === 'Fixed' ? 'green' : 'red'}">${r.status}</strong><br>
+                            ${r.newUrl ? `New URL: ${r.newUrl}` : `Error: ${r.error}`}
+                        </div>
+                    `).join('')}
+                `;
+                
+                if (fixed > 0) {
+                    statusDiv.innerHTML += '<div class="success">Refresh your admin panel to see the fixed images!</div>';
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                console.error('Fix error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,506 +1,463 @@
-// File: frontend/src/components/admin/nominations/NominationDetailModal.jsx
-import React, { useState, useEffect } from 'react';
+// File path: src/components/admin/nominations/NominationDetailModal.jsx
+
+import React, { useState } from 'react';
 import { 
-  X, User, Calendar, Mail, Phone, MapPin, School, FileText, Award,
-  Clock, Check, AlertTriangle, Trash2, Download, Eye, MessageSquare,
-  CheckCircle, XCircle, ExternalLink
+  X, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Calendar, 
+  FileText, 
+  Award,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Edit,
+  ExternalLink,
+  Heart,
+  Users,
+  Building
 } from 'lucide-react';
 
-const NominationDetailModal = ({ nomination, isOpen, onClose, onStatusUpdate, onDelete }) => {
-  const [loading, setLoading] = useState(false);
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [newStatus, setNewStatus] = useState('pending');
+const NominationDetailModal = ({ 
+  isOpen, 
+  onClose, 
+  nomination, 
+  onStatusUpdate,
+  onDelete,
+  loading = false 
+}) => {
   const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    if (nomination) {
-      setReviewNotes(nomination.adminReview?.notes || '');
-      setNewStatus(nomination.adminReview?.status || 'pending');
-      setImageError(false);
-    }
-  }, [nomination]);
 
   if (!isOpen || !nomination) return null;
 
-  // FIXED: Smart image URL resolution with multiple fallbacks
+  // FIXED: Get proper image URL using correct field names
   const getImageUrl = () => {
     const baseUrl = 'http://localhost:5000';
     
-    // Priority 1: Cloudinary URL (best quality, fast CDN)
+    // Priority 1: Cloudinary URL
     if (nomination.cloudinary?.photo?.url) {
       return nomination.cloudinary.photo.url;
     }
     
-    // Priority 2: Admin access URLs (designed for admin viewing)
+    // Priority 2: Admin access URLs
     if (nomination.adminAccessUrls?.nomineePhoto) {
       return nomination.adminAccessUrls.nomineePhoto.startsWith('http') 
         ? nomination.adminAccessUrls.nomineePhoto
         : `${baseUrl}${nomination.adminAccessUrls.nomineePhoto}`;
     }
     
-    // Priority 3: Local server file (backup storage)
+    // Priority 3: Local server file
     if (nomination.files?.photo?.filename) {
       return `${baseUrl}/uploads/nominations/${nomination.files.photo.filename}`;
     }
     
-    // Priority 4: Any non-blob URL in files
+    // Priority 4: Files URL (non-blob)
     if (nomination.files?.photo?.url && !nomination.files.photo.url.startsWith('blob:')) {
       return nomination.files.photo.url.startsWith('http') 
         ? nomination.files.photo.url 
         : `${baseUrl}${nomination.files.photo.url}`;
     }
     
-    // Fallback: Placeholder
-    return '/placeholder-photo.jpg';
+    return null;
   };
 
   const imageUrl = getImageUrl();
 
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  // Status configuration
+  const getStatusConfig = (status) => {
+    const configs = {
+      pending: { 
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-200', 
+        icon: Clock,
+        label: 'Pending Review' 
+      },
+      approved: { 
+        color: 'bg-green-100 text-green-800 border-green-200', 
+        icon: CheckCircle,
+        label: 'Approved' 
+      },
+      rejected: { 
+        color: 'bg-red-100 text-red-800 border-red-200', 
+        icon: XCircle,
+        label: 'Rejected' 
+      }
+    };
+    
+    return configs[status] || configs.pending;
   };
 
-  const handleStatusUpdate = async () => {
-    if (newStatus === nomination.adminReview?.status) return;
-    
-    setLoading(true);
+  const statusConfig = getStatusConfig(nomination.adminReview?.status || nomination.status);
+  const StatusIcon = statusConfig.icon;
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not specified';
     try {
-      await onStatusUpdate(nomination._id, newStatus, reviewNotes);
-      onClose();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Failed to update nomination status');
-    } finally {
-      setLoading(false);
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid Date';
     }
   };
 
-  // Status badge component
-  const StatusBadge = ({ status }) => {
-    const configs = {
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: Clock, label: 'Pending' },
-      approved: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle, label: 'Approved' },
-      rejected: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircle, label: 'Rejected' },
-      'needs-info': { bg: 'bg-blue-100', text: 'text-blue-800', icon: AlertTriangle, label: 'Needs Info' }
-    };
-    
-    const config = configs[status] || configs.pending;
-    const Icon = config.icon;
-    
-    return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
-        <Icon className="w-4 h-4 mr-1" />
-        {config.label}
-      </span>
-    );
-  };
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
-      <div className="min-h-screen px-2 md:px-4 py-4 flex items-start justify-center">
-        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden my-4">
-          
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="flex min-h-screen items-end justify-center p-4 sm:items-center sm:p-0">
+        <div className="relative transform overflow-hidden rounded-lg bg-white shadow-xl transition-all sm:my-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="bg-red-600 text-white p-4 md:p-6">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-700 px-6 py-4 sm:px-8">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3 min-w-0">
-                <Award className="w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-lg md:text-xl font-semibold truncate">
-                    {nomination.nominee?.firstName} {nomination.nominee?.lastName}
-                  </h3>
-                  <p className="text-red-100 text-sm truncate">
-                    {nomination.awardCategory} • {nomination.submissionId}
-                  </p>
-                </div>
+              <div className="flex items-center space-x-3">
+                <Award className="h-6 w-6 text-white" />
+                <h2 className="text-xl font-semibold text-white">
+                  Nomination Details
+                </h2>
               </div>
-              <div className="flex items-center space-x-3 flex-shrink-0">
-                <StatusBadge status={nomination.adminReview?.status || 'pending'} />
-                <button
-                  onClick={onClose}
-                  className="text-white hover:text-red-200 transition-colors"
-                >
-                  <X className="w-5 h-5 md:w-6 md:h-6" />
-                </button>
-              </div>
+              <button
+                onClick={onClose}
+                className="text-white hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-white/20 rounded-md p-1"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
           </div>
 
-          {/* Scrollable Content */}
-          <div className="max-h-[60vh] md:max-h-[65vh] overflow-y-auto">
-            <div className="p-4 md:p-6 space-y-6">
+          {/* Content */}
+          <div className="p-6 sm:p-8">
+            {/* Status and Actions Bar */}
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+              <div className={`inline-flex items-center px-4 py-2 rounded-lg border ${statusConfig.color}`}>
+                <StatusIcon className="h-4 w-4 mr-2" />
+                <span className="font-medium">{statusConfig.label}</span>
+              </div>
               
-              {/* ENHANCED: Nominee Section with FIXED Image Display */}
-              <section>
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <User className="w-5 h-5 mr-2 text-red-600" />
-                  Nominee Information
-                </h4>
-                
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex flex-col lg:flex-row items-start space-y-4 lg:space-y-0 lg:space-x-6">
-                    
-                    {/* FIXED: Photo Display with Multiple Fallbacks */}
-                    <div className="flex-shrink-0 mx-auto lg:mx-0">
-                      <div className="relative group">
-                        <img
-                          src={imageUrl}
-                          alt={`${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`}
-                          className="w-32 h-32 md:w-40 md:h-40 rounded-xl object-cover border-4 border-white shadow-lg"
-                          onError={(e) => {
-                            console.error('Image load failed:', e.target.src);
-                            setImageError(true);
-                            e.target.src = '/placeholder-photo.jpg';
-                          }}
-                          onLoad={() => setImageError(false)}
-                        />
-                        
-                        {/* Storage Type Indicator */}
-                        <div className="absolute -top-2 -right-2">
-                          {nomination.cloudinary?.photo?.url ? (
-                            <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg" title="Cloudinary CDN">
-                              CLOUD
-                            </div>
-                          ) : nomination.files?.photo?.filename ? (
-                            <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg" title="Local Server">
-                              LOCAL
-                            </div>
-                          ) : (
-                            <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg" title="No Image">
-                              ERROR
+              <div className="flex flex-wrap gap-2">
+                {(nomination.adminReview?.status || nomination.status) !== 'approved' && (
+                  <button
+                    onClick={() => onStatusUpdate(nomination._id, 'approved', '')}
+                    className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve
+                  </button>
+                )}
+                {(nomination.adminReview?.status || nomination.status) !== 'rejected' && (
+                  <button
+                    onClick={() => onStatusUpdate(nomination._id, 'rejected', '')}
+                    className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column - Nominee Photo */}
+              <div className="lg:col-span-1">
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Nominee Photo
+                  </h3>
+                  
+                  <div className="flex justify-center">
+                    <div className="relative">
+                      {imageUrl ? (
+                        <div className="w-48 h-48 rounded-lg overflow-hidden bg-gray-200 relative">
+                          <img
+                            src={imageUrl}
+                            alt={nomination.nominee?.firstName ? 
+                              `${nomination.nominee.firstName} ${nomination.nominee.lastName}` : 
+                              nomination.nomineeName || 'Nominee'
+                            }
+                            className="w-full h-full object-cover"
+                            onError={() => setImageError(true)}
+                          />
+                          {imageError && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600">
+                              <span className="text-white text-4xl font-bold">
+                                {(nomination.nominee?.firstName || nomination.nomineeName || 'N').charAt(0).toUpperCase()}
+                              </span>
                             </div>
                           )}
                         </div>
-
-                        {/* Hover Actions */}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100">
-                          <div className="flex space-x-2">
-                            <a
-                              href={imageUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                              title="View Full Size"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </a>
-                            <a
-                              href={imageUrl}
-                              download={`${nomination.nominee?.firstName}_${nomination.nominee?.lastName}_photo.jpg`}
-                              className="bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                              title="Download Image"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
-                          </div>
+                      ) : (
+                        <div className="w-48 h-48 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                          <span className="text-white text-4xl font-bold">
+                            {(nomination.nominee?.firstName || nomination.nomineeName || 'N').charAt(0).toUpperCase()}
+                          </span>
                         </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {imageUrl && (
+                    <div className="mt-4 text-center">
+                      <a
+                        href={imageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        View Full Size
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column - Details */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Nominee Information */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <User className="h-5 w-5 mr-2 text-purple-500" />
+                    Nominee Information
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Full Name
+                        </label>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
+                          {nomination.nominee?.firstName && nomination.nominee?.lastName ? 
+                            `${nomination.nominee.firstName} ${nomination.nominee.middleName ? nomination.nominee.middleName + ' ' : ''}${nomination.nominee.lastName}` : 
+                            nomination.nomineeName || 'Not provided'
+                          }
+                        </p>
                       </div>
                       
-                      {/* Image Details Card */}
-                      <div className="mt-3 bg-white rounded-lg p-3 border text-xs">
-                        <h6 className="font-semibold text-gray-700 mb-2">Image Details</h6>
-                        <div className="space-y-1 text-gray-600">
-                          <div className="flex justify-between">
-                            <span>Cloudinary:</span>
-                            <span className={nomination.cloudinary?.photo?.url ? 'text-green-600 font-medium' : 'text-red-500'}>
-                              {nomination.cloudinary?.photo?.url ? 'Available' : 'Not Found'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Local Backup:</span>
-                            <span className={nomination.files?.photo?.filename ? 'text-green-600 font-medium' : 'text-red-500'}>
-                              {nomination.files?.photo?.filename ? 'Available' : 'Not Found'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Status:</span>
-                            <span className={imageError ? 'text-red-500' : 'text-green-600 font-medium'}>
-                              {imageError ? 'Load Error' : 'Loading OK'}
-                            </span>
-                          </div>
-                        </div>
-                        {nomination.cloudinary?.photo?.url && (
-                          <div className="mt-2 pt-2 border-t">
-                            <span className="text-gray-500">URL:</span>
-                            <p className="text-xs text-blue-600 break-all mt-1">
-                              {nomination.cloudinary.photo.url.substring(0, 50)}...
-                            </p>
-                          </div>
-                        )}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email Address
+                        </label>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                          <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                          {nomination.nominee?.email || nomination.nomineeEmail || 'Not provided'}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Phone Number
+                        </label>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                          <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                          {nomination.nominee?.phone || nomination.nomineePhone || 'Not provided'}
+                        </p>
                       </div>
                     </div>
-
-                    {/* Personal Details */}
-                    <div className="flex-1 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div className="space-y-3">
-                          <div>
-                            <span className="block font-medium text-gray-600 mb-1">Full Name</span>
-                            <p className="text-gray-900 font-medium">
-                              {nomination.nominee?.firstName} {nomination.nominee?.middleName} {nomination.nominee?.lastName}
-                            </p>
-                          </div>
-                          <div>
-                            <span className="block font-medium text-gray-600 mb-1">Age & Gender</span>
-                            <p className="text-gray-900">{nomination.nominee?.age} years old, {nomination.nominee?.gender}</p>
-                          </div>
-                          <div>
-                            <span className="block font-medium text-gray-600 mb-1">Contact</span>
-                            <div className="space-y-1">
-                              <p className="text-gray-900 flex items-center">
-                                <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                                {nomination.nominee?.email}
-                              </p>
-                              <p className="text-gray-900 flex items-center">
-                                <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                                {nomination.nominee?.phone}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <div>
-                            <span className="block font-medium text-gray-600 mb-1">Location</span>
-                            <p className="text-gray-900 flex items-center">
-                              <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                              {nomination.nominee?.county}, {nomination.nominee?.subcounty}
-                            </p>
-                          </div>
-                          <div>
-                            <span className="block font-medium text-gray-600 mb-1">Education</span>
-                            <p className="text-gray-900 flex items-center">
-                              <School className="w-4 h-4 mr-2 text-gray-400" />
-                              {nomination.nominee?.school?.name || 'Not specified'}
-                            </p>
-                            {nomination.nominee?.school?.level && (
-                              <p className="text-gray-600 text-sm ml-6">{nomination.nominee.school.level}</p>
-                            )}
-                          </div>
-                          <div>
-                            <span className="block font-medium text-gray-600 mb-1">Nationality</span>
-                            <p className="text-gray-900 capitalize">{nomination.nominee?.nationality?.replace('-', ' ')}</p>
-                          </div>
-                        </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Category
+                        </label>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                          <Award className="h-4 w-4 mr-2 text-purple-500" />
+                          {nomination.awardCategory || nomination.category || 'Not specified'}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Location
+                        </label>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                          <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                          {nomination.nominee?.location ? 
+                            `${nomination.nominee.location.county}${nomination.nominee.location.subcounty ? `, ${nomination.nominee.location.subcounty}` : ''}` :
+                            nomination.nomineeLocation || 'Not provided'
+                          }
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          School/Organization
+                        </label>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                          <Building className="h-4 w-4 mr-2 text-gray-400" />
+                          {nomination.nominee?.school?.name || nomination.nomineeOrganization || 'Not provided'}
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
-              </section>
 
-              {/* Nomination Content */}
-              <section>
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <FileText className="w-5 h-5 mr-2 text-red-600" />
-                  Nomination Statement
-                </h4>
-                
-                <div className="space-y-6">
-                  <div>
-                    <h5 className="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide">Short Bio</h5>
-                    <div className="bg-gray-50 p-4 rounded-lg border">
-                      <p className="text-sm text-gray-900 leading-relaxed">
-                        {nomination.shortBio || 'No biography provided'}
-                      </p>
-                    </div>
-                  </div>
+                {/* Nomination Details */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <Heart className="h-5 w-5 mr-2 text-red-500" />
+                    Why This Nominee Deserves Recognition
+                  </h3>
                   
-                  <div>
-                    <h5 className="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide">Key Achievements</h5>
-                    <div className="bg-gray-50 p-4 rounded-lg border">
-                      <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
-                        {nomination.achievements || 'No achievements listed'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h5 className="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide">Impact Statement</h5>
-                    <div className="bg-gray-50 p-4 rounded-lg border">
-                      <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
-                        {nomination.impact || 'No impact statement provided'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h5 className="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide">Why Deserves Award</h5>
-                    <div className="bg-gray-50 p-4 rounded-lg border">
-                      <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
-                        {nomination.whyDeserveAward || 'No statement provided'}
-                      </p>
-                    </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      {nomination.shortBio || nomination.nominationReason || 'No bio provided'}
+                    </p>
                   </div>
 
-                  {nomination.additionalInfo && (
-                    <div>
-                      <h5 className="font-semibold text-gray-700 mb-2 text-sm uppercase tracking-wide">Additional Information</h5>
-                      <div className="bg-gray-50 p-4 rounded-lg border">
-                        <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
-                          {nomination.additionalInfo}
+                  {(nomination.achievements || nomination.specificAchievements) && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        Key Achievements
+                      </h4>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {nomination.achievements || nomination.specificAchievements}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(nomination.impact || nomination.impactStory) && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        Impact Story
+                      </h4>
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {nomination.impact || nomination.impactStory}
                         </p>
                       </div>
                     </div>
                   )}
                 </div>
-              </section>
 
-              {/* Nominator Information */}
-              <section>
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Nominator Information</h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                {/* Nominator Information */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-blue-500" />
+                    Nominator Information
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <span className="font-medium text-gray-600">Name:</span>
-                      <p className="text-gray-900">
-                        {nomination.nominator?.firstName} {nomination.nominator?.lastName}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Name
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
+                        {nomination.nominator?.firstName && nomination.nominator?.lastName ? 
+                          `${nomination.nominator.firstName} ${nomination.nominator.lastName}` :
+                          nomination.nominatorName || 'Anonymous'
+                        }
                       </p>
                     </div>
+                    
                     <div>
-                      <span className="font-medium text-gray-600">Relationship:</span>
-                      <p className="text-gray-900 capitalize">{nomination.nominator?.relationship}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                        <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                        {nomination.nominator?.email || nomination.nominatorEmail || 'Not provided'}
+                      </p>
                     </div>
+                    
                     <div>
-                      <span className="font-medium text-gray-600">Email:</span>
-                      <p className="text-gray-900">{nomination.nominator?.email}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                        <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                        {nomination.nominator?.phone || nomination.nominatorPhone || 'Not provided'}
+                      </p>
                     </div>
+                    
                     <div>
-                      <span className="font-medium text-gray-600">Phone:</span>
-                      <p className="text-gray-900">{nomination.nominator?.phone}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Relationship to Nominee
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
+                        {nomination.nominator?.relationship || nomination.relationship || 'Not specified'}
+                      </p>
                     </div>
                   </div>
                 </div>
-              </section>
 
-              {/* Referee Information */}
-              {nomination.referee && (
-                <section>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Referee Information</h4>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-600">Name:</span>
-                        <p className="text-gray-900">{nomination.referee.name}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Position:</span>
-                        <p className="text-gray-900">{nomination.referee.position}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Organization:</span>
-                        <p className="text-gray-900">{nomination.referee.organization}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Contact:</span>
-                        <p className="text-gray-900">{nomination.referee.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* Files & Supporting Documents */}
-              {(nomination.supportingFiles?.length > 0 || nomination.files?.supportingFiles?.length > 0) && (
-                <section>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Supporting Documents</h4>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-600 mb-2">
-                      {nomination.files?.supportingFiles?.length || 0} supporting files uploaded
-                    </p>
-                    <div className="text-xs text-gray-500">
-                      Files are stored securely and available for review
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* Submission Metadata */}
-              <section>
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Submission Details</h4>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-600">Submitted:</span>
-                      <p className="text-gray-900">{formatDate(nomination.createdAt)}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600">Category:</span>
-                      <p className="text-gray-900">{nomination.awardCategory}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-600">Submission ID:</span>
-                      <p className="text-gray-900 font-mono text-xs">{nomination.submissionId}</p>
-                    </div>
-                  </div>
+                {/* Submission Details */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-gray-500" />
+                    Submission Details
+                  </h3>
                   
-                  {nomination.adminReview?.reviewDate && (
-                    <div className="pt-2 border-t border-gray-200">
-                      <span className="font-medium text-gray-600">Last Reviewed:</span>
-                      <p className="text-gray-900">{formatDate(nomination.adminReview.reviewDate)}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Submission Date
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                        {formatDate(nomination.createdAt || nomination.submittedAt)}
+                      </p>
                     </div>
-                  )}
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Submission ID
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2 font-mono">
+                        {nomination.submissionId || nomination._id}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Age
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
+                        {nomination.nominee?.age || 'Not provided'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nationality
+                      </label>
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-md px-3 py-2">
+                        {nomination.nominee?.nationality?.replace('-', ' ') || 'Not provided'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </section>
+              </div>
             </div>
           </div>
 
-          {/* ENHANCED Footer - Admin Actions */}
-          <div className="bg-gray-50 border-t p-4 md:p-6 space-y-4">
-            
-            {/* Review Notes */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Review Notes
-              </label>
-              <textarea
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-                placeholder="Add notes about this nomination..."
-              />
-            </div>
-
-            {/* Status Update Actions */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between space-y-4 lg:space-y-0">
-              <div className="flex flex-col md:flex-row items-start md:items-center space-y-3 md:space-y-0 md:space-x-4">
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Status:</label>
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="needs-info">Needs Info</option>
-                  </select>
-                </div>
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-4 sm:px-8 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+              <div className="text-sm text-gray-500">
+                Last updated: {formatDate(nomination.updatedAt || nomination.createdAt)}
               </div>
-
-              {/* Action Buttons */}
+              
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={handleStatusUpdate}
-                  disabled={loading || newStatus === nomination.adminReview?.status}
-                  className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>{loading ? 'Updating...' : 'Update Status'}</span>
-                </button>
-                
-                <button
                   onClick={onClose}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                 >
-                  <X className="w-4 h-4" />
-                  <span>Close</span>
+                  Close
                 </button>
               </div>
             </div>
