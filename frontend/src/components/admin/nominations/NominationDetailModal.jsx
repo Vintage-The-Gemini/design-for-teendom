@@ -1,4 +1,5 @@
 // File: frontend/src/components/admin/nominations/NominationDetailModal.jsx
+
 import React, { useState, useEffect } from 'react';
 import { 
   X, User, Calendar, Mail, Phone, MapPin, School, FileText, Award,
@@ -24,585 +25,388 @@ const NominationDetailModal = ({ nomination, isOpen, onClose, onStatusUpdate, on
 
   if (!isOpen || !nomination) return null;
 
-  // FIXED: Enhanced image URL resolution based on your actual data structure
+  // ONLY use Cloudinary URLs - ignore everything else
   const getImageUrl = () => {
     console.log('🔍 Resolving image URL for nomination:', nomination.submissionId);
     
-    // Priority 1: Cloudinary CDN URL (YOU HAVE THIS!)
-    if (nomination.cloudinary?.photo?.url) {
-      console.log('✅ Using Cloudinary URL:', nomination.cloudinary.photo.url);
-      return nomination.cloudinary.photo.url;
+    // ONLY accept Cloudinary URLs
+    if (nomination.nominee?.photo && 
+        typeof nomination.nominee.photo === 'string' && 
+        nomination.nominee.photo.includes('cloudinary')) {
+      console.log('✅ Using Cloudinary URL:', nomination.nominee.photo);
+      return nomination.nominee.photo;
     }
     
-    // Priority 2: Cloudinary HTTPS URL (secure_url - YOU HAVE THIS TOO!)
-    if (nomination.cloudinary?.photo?.secure_url) {
-      console.log('✅ Using Cloudinary HTTPS URL:', nomination.cloudinary.photo.secure_url);
-      return nomination.cloudinary.photo.secure_url;
-    }
-    
-    // Priority 3: Admin access URLs (currently empty in your data)
-    if (nomination.adminAccessUrls?.nomineePhoto) {
-      const adminUrl = nomination.adminAccessUrls.nomineePhoto;
-      const fullUrl = adminUrl.startsWith('http') ? adminUrl : `http://localhost:5000${adminUrl}`;
-      console.log('✅ Using admin access URL:', fullUrl);
-      return fullUrl;
-    }
-    
-    // Priority 4: Local server file (YOU HAVE THIS!)
-    if (nomination.files?.photo?.filename) {
-      const localUrl = `http://localhost:5000/uploads/nominations/${nomination.files.photo.filename}`;
-      console.log('✅ Using local file URL:', localUrl);
-      return localUrl;
-    }
-    
-    // Priority 5: File URL with proper base (YOU HAVE THIS!)
-    if (nomination.files?.photo?.url) {
-      const fileUrl = nomination.files.photo.url.startsWith('http') 
-        ? nomination.files.photo.url 
-        : `http://localhost:5000${nomination.files.photo.url}`;
-      console.log('✅ Using file URL:', fileUrl);
-      return fileUrl;
-    }
-    
-    console.log('❌ No valid image URL found');
-    return 'https://via.placeholder.com/400x400?text=No+Image';
-  };
-
-  // Get image source type for display
-  const getImageSourceType = () => {
-    if (nomination.cloudinary?.photo?.url) {
-      return { type: 'cloudinary', label: 'Cloudinary CDN', color: 'green', icon: <CloudDownload className="w-3 h-3" /> };
-    }
-    if (nomination.adminAccessUrls?.nomineePhoto) {
-      return { type: 'admin', label: 'Admin URL', color: 'blue', icon: <ExternalLink className="w-3 h-3" /> };
-    }
-    if (nomination.files?.photo?.filename) {
-      return { type: 'local', label: 'Local Server', color: 'yellow', icon: <Server className="w-3 h-3" /> };
-    }
-    return { type: 'error', label: 'No Image', color: 'red', icon: <AlertCircle className="w-3 h-3" /> };
-  };
-
-  // FIXED: Handle all possible object structures
-  const formatField = (field) => {
-    if (!field) return 'Not provided';
-    if (typeof field === 'string') return field;
-    if (typeof field === 'object') {
-      // Handle location objects
-      if (field.county || field.subcounty || field.ward) {
-        const parts = [];
-        if (field.ward) parts.push(field.ward);
-        if (field.subcounty) parts.push(field.subcounty);
-        if (field.county) parts.push(field.county);
-        return parts.join(', ') || 'Not provided';
-      }
-      // Handle school objects with name, level, grade
-      if (field.name || field.level || field.grade) {
-        const parts = [];
-        if (field.name) parts.push(field.name);
-        if (field.level) parts.push(field.level);
-        if (field.grade) parts.push(field.grade);
-        return parts.join(' - ') || 'Not provided';
-      }
-      // Handle any other object
-      try {
-        return Object.values(field).filter(v => v).join(' - ') || 'Not provided';
-      } catch {
-        return 'Not provided';
-      }
-    }
-    return String(field);
+    console.log('❌ No Cloudinary image URL found for:', nomination.submissionId);
+    console.log('Photo data:', nomination.nominee?.photo);
+    return null;
   };
 
   const imageUrl = getImageUrl();
-  const imageSource = getImageSourceType();
 
-  // Handle status update
-  const handleStatusUpdate = async () => {
-    if (loading) return;
-
+  const handleStatusUpdate = async (status) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem('adminToken');
-      
-      const response = await fetch(`http://localhost:5000/api/admin/nominations/${nomination._id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          notes: reviewNotes,
-          sendNotification: true
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Status updated:', result);
-
-      // Call parent callback
-      if (onStatusUpdate) {
-        onStatusUpdate(nomination._id, newStatus, reviewNotes);
-      }
-
-      // Close modal
-      onClose();
+      await onStatusUpdate(nomination._id, status, reviewNotes);
+      setNewStatus(status);
     } catch (error) {
-      console.error('❌ Status update error:', error);
-      alert('Failed to update status: ' + error.message);
+      console.error('Failed to update status:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle deletion
-  const handleDelete = async () => {
-    const confirmMessage = `Are you sure you want to permanently delete this nomination for ${nomination.nominee?.firstName} ${nomination.nominee?.lastName}? This action cannot be undone.`;
-    
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+  const formatDate = (date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(date));
+  };
 
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('adminToken');
-      
-      const response = await fetch(`http://localhost:5000/api/admin/nominations/${nomination._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete nomination: ${response.status}`);
-      }
-
-      console.log('✅ Nomination deleted');
-
-      // Call parent callback
-      if (onDelete) {
-        onDelete(nomination._id);
-      }
-
-      // Close modal
-      onClose();
-    } catch (error) {
-      console.error('❌ Delete error:', error);
-      alert('Failed to delete nomination: ' + error.message);
-    } finally {
-      setLoading(false);
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved': return 'text-green-600 bg-green-100';
+      case 'rejected': return 'text-red-600 bg-red-100';
+      case 'under-review': return 'text-yellow-600 bg-yellow-100';
+      case 'submitted': return 'text-blue-600 bg-blue-100';
+      default: return 'text-gray-600 bg-gray-100';
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Backdrop */}
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose} />
 
         {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-          
+        <div className="inline-block w-full max-w-4xl px-6 py-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
           {/* Header */}
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <User className="w-6 h-6 text-blue-600" />
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {nomination.nominee?.firstName} {nomination.nominee?.lastName}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Submission ID: {nomination.submissionId}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Nomination Details
+              </h2>
+              <p className="text-sm text-gray-500 mt-1 font-mono">
+                {nomination.submissionId}
+              </p>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
 
-          {/* Content */}
-          <div className="p-6 max-h-96 overflow-y-auto space-y-6">
-            
-            {/* Nominee Information with FIXED Image Display */}
-            <section>
-              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <User className="w-5 h-5 mr-2 text-blue-600" />
-                Nominee Information
-              </h4>
-              
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex flex-col lg:flex-row items-start space-y-6 lg:space-y-0 lg:space-x-6">
-                  
-                  {/* FIXED: Enhanced Photo Display */}
-                  <div className="flex-shrink-0 mx-auto lg:mx-0">
-                    <div className="relative group">
-                      {imageError || imageSource.type === 'error' ? (
-                        <div className="w-40 h-40 rounded-xl bg-gray-200 border-4 border-white shadow-lg flex items-center justify-center">
-                          <div className="text-center">
-                            <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">No Image</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {imageLoading && (
-                            <div className="absolute inset-0 w-40 h-40 rounded-xl bg-gray-200 animate-pulse flex items-center justify-center">
-                              <div className="text-sm text-gray-500">Loading...</div>
-                            </div>
-                          )}
-                          <img
-                            src={imageUrl}
-                            alt={`${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`}
-                            className={`w-40 h-40 rounded-xl object-cover border-4 border-white shadow-lg ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity`}
-                            onLoad={() => {
-                              setImageLoading(false);
-                              setImageError(false);
-                              console.log('✅ Image loaded successfully:', imageUrl);
-                            }}
-                            onError={(e) => {
-                              console.error('❌ Image failed to load:', e.target.src);
-                              setImageLoading(false);
-                              setImageError(true);
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        </>
-                      )}
-                      
-                      {/* Image Source Indicator */}
-                      <div className="absolute -top-2 -right-2">
-                        <div className={`bg-${imageSource.color}-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg flex items-center space-x-1`} title={imageSource.label}>
-                          {imageSource.icon}
-                          <span>{imageSource.type.toUpperCase()}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Nominee Info */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Nominee Photo & Basic Info */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <User className="w-5 h-5 mr-2 text-purple-600" />
+                  Nominee Information
+                </h3>
+                
+                <div className="flex items-start space-x-6">
+                  {/* Photo */}
+                  <div className="flex-shrink-0">
+                    {imageError || !imageUrl ? (
+                      <div className="w-32 h-32 rounded-xl bg-gray-200 flex items-center justify-center border-2 border-dashed border-gray-300">
+                        <div className="text-center">
+                          <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-xs text-gray-500">No image available</p>
                         </div>
                       </div>
-
-                      {/* Hover Actions */}
-                      {!imageError && imageSource.type !== 'error' && (
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100">
-                          <div className="flex space-x-2">
-                            <a
-                              href={imageUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                              title="View Full Size"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </a>
-                            <a
-                              href={imageUrl}
-                              download={`${nomination.nominee?.firstName}_${nomination.nominee?.lastName}_photo.jpg`}
-                              className="bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                              title="Download Image"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
+                    ) : (
+                      <div className="relative">
+                        <img
+                          src={imageUrl}
+                          alt={`${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`}
+                          className="w-32 h-32 rounded-xl object-cover border-2 border-gray-200 shadow-md"
+                          onError={() => setImageError(true)}
+                          onLoad={() => setImageLoading(false)}
+                        />
+                        {imageLoading && (
+                          <div className="absolute inset-0 bg-gray-200 rounded-xl flex items-center justify-center">
+                            <div className="animate-spin w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full" />
                           </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Image Technical Details */}
-                    <div className="mt-4 bg-white rounded-lg p-3 border text-xs">
-                      <h6 className="font-semibold text-gray-700 mb-2">Image Details</h6>
-                      <div className="space-y-1 text-gray-600">
-                        <div className="flex justify-between">
-                          <span>Source:</span>
-                          <span className={`text-${imageSource.color}-600 font-medium`}>
-                            {imageSource.label}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Cloudinary:</span>
-                          <span className={nomination.cloudinary?.photo?.url ? 'text-green-600 font-medium' : 'text-red-500'}>
-                            {nomination.cloudinary?.photo?.url ? '✓ Available' : '✗ Not Available'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Local File:</span>
-                          <span className={nomination.files?.photo?.filename ? 'text-green-600 font-medium' : 'text-red-500'}>
-                            {nomination.files?.photo?.filename ? '✓ Available' : '✗ Not Available'}
-                          </span>
-                        </div>
-                        {nomination.cloudinary?.photo?.publicId && (
-                          <div className="flex justify-between">
-                            <span>Public ID:</span>
-                            <span className="text-blue-600 font-mono text-xs">
-                              {nomination.cloudinary.photo.publicId}
-                            </span>
+                        )}
+                        {imageUrl.includes('cloudinary') && (
+                          <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1">
+                            <CloudDownload className="w-3 h-3" />
                           </div>
                         )}
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Personal Information */}
-                  <div className="flex-1 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Full Name</label>
-                        <p className="text-gray-900 font-medium">
-                          {nomination.nominee?.firstName} {nomination.nominee?.lastName}
-                        </p>
+                  {/* Basic Info */}
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <h4 className="text-xl font-bold text-gray-900">
+                        {nomination.nominee?.firstName} {nomination.nominee?.middleName} {nomination.nominee?.lastName}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {nomination.nominee?.age} years old • {nomination.nominee?.gender} • {nomination.nominee?.nationality}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="w-4 h-4 mr-2 text-purple-600" />
+                        Born: {new Date(nomination.nominee?.dateOfBirth).toLocaleDateString()}
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Email Address</label>
-                        <p className="text-gray-900 flex items-center">
-                          <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                          {nomination.nominee?.email}
-                        </p>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Mail className="w-4 h-4 mr-2 text-purple-600" />
+                        {nomination.nominee?.email}
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Phone Number</label>
-                        <p className="text-gray-900 flex items-center">
-                          <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                          {nomination.nominee?.phone || 'Not provided'}
-                        </p>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Phone className="w-4 h-4 mr-2 text-purple-600" />
+                        {nomination.nominee?.phone}
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Location</label>
-                        <p className="text-gray-900 flex items-center">
-                          <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                          {formatField(nomination.nominee?.location)}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">School/Organization</label>
-                        <p className="text-gray-900 flex items-center">
-                          <School className="w-4 h-4 mr-2 text-gray-400" />
-                          {formatField(nomination.nominee?.school)}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Award Category</label>
-                        <p className="text-gray-900 flex items-center">
-                          <Award className="w-4 h-4 mr-2 text-purple-500" />
-                          {nomination.awardCategory}
-                        </p>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="w-4 h-4 mr-2 text-purple-600" />
+                        {nomination.nominee?.location?.city}, {nomination.nominee?.location?.county}
                       </div>
                     </div>
+
+                    {nomination.nominee?.school && (
+                      <div className="flex items-center text-sm text-gray-600">
+                        <School className="w-4 h-4 mr-2 text-purple-600" />
+                        {nomination.nominee.school.name} - {nomination.nominee.school.level}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </section>
 
-            {/* Nomination Details */}
-            <section>
-              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <FileText className="w-5 h-5 mr-2 text-green-600" />
-                Nomination Details
-              </h4>
-              
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Why is this person deserving of this award?</label>
-                    <div className="mt-1 p-3 bg-white rounded border text-gray-900 whitespace-pre-wrap">
-                      {nomination.nominationReason || 'Not provided'}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Supporting Evidence/Examples</label>
-                    <div className="mt-1 p-3 bg-white rounded border text-gray-900 whitespace-pre-wrap">
-                      {nomination.supportingEvidence || 'Not provided'}
-                    </div>
-                  </div>
+              {/* Award Category */}
+              <div className="bg-purple-50 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Award className="w-5 h-5 mr-2 text-purple-600" />
+                  Award Category
+                </h3>
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <h4 className="text-xl font-bold text-purple-800">{nomination.awardCategory}</h4>
+                </div>
+              </div>
 
-                  {nomination.supportingFiles && nomination.supportingFiles.length > 0 && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Supporting Files</label>
-                      <div className="mt-2 space-y-2">
-                        {nomination.supportingFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
-                            <span className="text-sm text-gray-900">{file.originalName || `File ${index + 1}`}</span>
-                            <a
-                              href={file.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          </div>
-                        ))}
+              {/* Nomination Content */}
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                    Short Biography
+                  </h4>
+                  <p className="text-gray-700 text-sm leading-relaxed">
+                    {nomination.shortBio}
+                  </p>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <Award className="w-4 h-4 mr-2 text-green-600" />
+                    Key Achievements
+                  </h4>
+                  <p className="text-gray-700 text-sm leading-relaxed">
+                    {nomination.achievements}
+                  </p>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-2 text-orange-600" />
+                    Impact Statement
+                  </h4>
+                  <p className="text-gray-700 text-sm leading-relaxed">
+                    {nomination.impact}
+                  </p>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <MessageSquare className="w-4 h-4 mr-2 text-purple-600" />
+                    Why They Deserve This Award
+                  </h4>
+                  <p className="text-gray-700 text-sm leading-relaxed">
+                    {nomination.whyDeserveAward}
+                  </p>
+                </div>
+
+                {nomination.additionalInfo && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-2 text-gray-600" />
+                      Additional Information
+                    </h4>
+                    <p className="text-gray-700 text-sm leading-relaxed">
+                      {nomination.additionalInfo}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Supporting Files */}
+              {nomination.supportingFiles && nomination.supportingFiles.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Download className="w-5 h-5 mr-2 text-green-600" />
+                    Supporting Files ({nomination.supportingFiles.length})
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {nomination.supportingFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                        <div className="flex items-center">
+                          <FileText className="w-4 h-4 text-gray-600 mr-2" />
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {file.originalName || `File ${index + 1}`}
+                          </span>
+                        </div>
+                        {file.url && (
+                          <a
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-purple-600 hover:text-purple-800"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
                       </div>
-                    </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column - Status & Actions */}
+            <div className="space-y-6">
+              {/* Current Status */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Status</h3>
+                <div className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${getStatusColor(nomination.adminReview?.status || nomination.status)}`}>
+                  {nomination.adminReview?.status || nomination.status || 'pending'}
+                </div>
+                <div className="mt-4 text-sm text-gray-600">
+                  <p><strong>Submitted:</strong> {formatDate(nomination.createdAt)}</p>
+                  {nomination.updatedAt !== nomination.createdAt && (
+                    <p><strong>Updated:</strong> {formatDate(nomination.updatedAt)}</p>
                   )}
                 </div>
               </div>
-            </section>
 
-            {/* Nominator Information */}
-            <section>
-              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <User className="w-5 h-5 mr-2 text-orange-600" />
-                Nominator Information
-              </h4>
-              
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Name</label>
-                    <p className="text-gray-900">
-                      {nomination.nominator?.firstName} {nomination.nominator?.lastName}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Email</label>
-                    <p className="text-gray-900">{nomination.nominator?.email}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Relationship to Nominee</label>
-                    <p className="text-gray-900">{nomination.nominator?.relationship || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Phone</label>
-                    <p className="text-gray-900">{nomination.nominator?.phone || 'Not provided'}</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Submission Info */}
-            <section>
-              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Calendar className="w-5 h-5 mr-2 text-blue-600" />
-                Submission Information
-              </h4>
-              
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Submitted Date</label>
-                    <p className="text-gray-900">
-                      {new Date(nomination.submittedAt || nomination.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Submission ID</label>
-                    <p className="text-gray-900 font-mono">{nomination.submissionId}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Current Status</label>
-                    <p className="text-gray-900 capitalize">{nomination.status}</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          {/* ADMIN ACTIONS - Review Only, No Edit */}
-          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-            <div className="space-y-4">
-              {/* Status Selection */}
-              <div className="flex items-center space-x-4">
-                <label className="text-sm font-medium text-gray-700">Review Status:</label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  disabled={loading}
-                >
-                  <option value="pending">Pending Review</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="needs-info">Needs More Info</option>
-                </select>
-              </div>
-
-              {/* Review Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Review Notes (optional)
-                </label>
-                <textarea
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="Add any notes about your review decision..."
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between">
-                <div className="flex space-x-3">
-                  <button
-                    onClick={handleStatusUpdate}
-                    disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors flex items-center"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Updating...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Update Status
-                      </>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={onClose}
-                    disabled={loading}
-                    className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                {/* DELETE BUTTON - Red Theme */}
-                <button
-                  onClick={handleDelete}
-                  disabled={loading}
-                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors flex items-center"
-                  title="Permanently delete this nomination"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Nomination
-                </button>
-              </div>
-
-              {/* Current Review Status Display */}
-              {nomination.adminReview?.reviewed && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-start space-x-3">
-                    <MessageSquare className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div className="flex-1">
-                      <h6 className="font-medium text-blue-900">Previous Review</h6>
-                      <p className="text-sm text-blue-800 mt-1">
-                        Status: <span className="font-medium capitalize">{nomination.adminReview.status}</span>
-                      </p>
-                      {nomination.adminReview.notes && (
-                        <p className="text-sm text-blue-700 mt-1 bg-white p-2 rounded border">
-                          "{nomination.adminReview.notes}"
-                        </p>
-                      )}
-                      <p className="text-xs text-blue-600 mt-2">
-                        Reviewed on {new Date(nomination.adminReview.reviewDate).toLocaleDateString()}
-                      </p>
+              {/* Image Source Info */}
+              {imageUrl && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <ImageIcon className="w-5 h-5 mr-2 text-blue-600" />
+                    Image Information
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Source:</span>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        imageUrl.includes('cloudinary') ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {imageUrl.includes('cloudinary') ? 'Cloudinary CDN' : 'Local Server'}
+                      </span>
                     </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Status:</span>
+                      <span className="text-green-600 font-medium">✅ Available</span>
+                    </div>
+                    <a
+                      href={imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      View Full Image
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Admin Actions */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Actions</h3>
+                
+                <div className="space-y-4">
+                  {/* Review Notes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Review Notes
+                    </label>
+                    <textarea
+                      value={reviewNotes}
+                      onChange={(e) => setReviewNotes(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                      placeholder="Add your review notes..."
+                    />
+                  </div>
+
+                  {/* Status Update Buttons */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleStatusUpdate('approved')}
+                      disabled={loading}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleStatusUpdate('under-review')}
+                      disabled={loading}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                    >
+                      <Clock className="w-4 h-4 mr-2" />
+                      Under Review
+                    </button>
+                    <button
+                      onClick={() => handleStatusUpdate('rejected')}
+                      disabled={loading}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Reject
+                    </button>
+                  </div>
+
+                  {/* Delete Button */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => onDelete(nomination)}
+                      disabled={loading}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Nomination
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Nominator Info */}
+              {nomination.nominator && (
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <User className="w-5 h-5 mr-2 text-gray-600" />
+                    Nominated By
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <p><strong>Name:</strong> {nomination.nominator.firstName} {nomination.nominator.lastName}</p>
+                    <p><strong>Email:</strong> {nomination.nominator.email}</p>
+                    <p><strong>Phone:</strong> {nomination.nominator.phone}</p>
+                    <p><strong>Organization:</strong> {nomination.nominator.organization}</p>
+                    <p><strong>Relationship:</strong> {nomination.nominator.relationshipToNominee}</p>
                   </div>
                 </div>
               )}
