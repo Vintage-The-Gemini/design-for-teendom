@@ -1,3 +1,5 @@
+// File: /frontend/src/config/api.js
+
 // API Configuration for both development and production environments
 // Automatically detects environment and uses appropriate backend URL
 
@@ -6,7 +8,7 @@ const isDevelopment = import.meta.env.DEV;
 
 // Backend URLs
 const DEVELOPMENT_API_URL = 'http://localhost:5000';
-const PRODUCTION_API_URL = 'https://teendom-awards-backend.onrender.com'; // Replace with your actual backend URL
+const PRODUCTION_API_URL = 'https://design-for-teendom-backend.onrender.com';
 
 // Primary API URL selection with fallback chain
 export const API_BASE_URL = 
