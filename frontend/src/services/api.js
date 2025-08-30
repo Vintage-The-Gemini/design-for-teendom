@@ -79,13 +79,19 @@ class ApiService {
     });
   }
 
-  // Health check
+  // Health check - FIXED: Try both endpoints
   async healthCheck() {
     try {
-      return this.makeRequest('/health');
+      // Try /api/health first (most likely)
+      return await this.makeRequest('/api/health');
     } catch (error) {
-      console.error('❌ Backend health check failed:', error);
-      throw new Error(`Backend is not available at ${this.baseURL}. Make sure the server is running!`);
+      try {
+        // Fallback to /health
+        return await this.makeRequest('/health');
+      } catch (fallbackError) {
+        console.error('❌ Backend health check failed on both endpoints:', error, fallbackError);
+        throw new Error(`Backend is not available at ${this.baseURL}. Tried /api/health and /health`);
+      }
     }
   }
 
