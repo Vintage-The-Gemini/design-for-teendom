@@ -1,92 +1,41 @@
-// File: frontend/src/services/adminApi.js
+// File: /frontend/src/services/adminApi.js
+import { API_BASE_URL } from '../config/api';
 
 class AdminApiService {
   constructor() {
-    const baseUrl = import.meta.env?.VITE_API_URL || 
-                   import.meta.env?.REACT_APP_API_URL || 
-                   'http://localhost:5000';
-    
-    this.baseURL = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
-    this.token = localStorage.getItem('adminToken');
-    
+    this.baseURL = `${API_BASE_URL}/api`;
     console.log('🔗 AdminAPI initialized with baseURL:', this.baseURL);
   }
 
-  // Token management
-  setToken(token) {
-    this.token = token;
-    localStorage.setItem('adminToken', token);
-  }
-
-  getToken() {
-    return this.token || localStorage.getItem('adminToken');
-  }
-
-  removeToken() {
-    this.token = null;
-    localStorage.removeItem('adminToken');
-  }
-
-  isAuthenticated() {
-    const token = this.getToken();
-    if (!token) return false;
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const currentTime = Date.now() / 1000;
-      
-      if (payload.exp && payload.exp < currentTime) {
-        this.removeToken();
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Token validation error:', error);
-      this.removeToken();
-      return false;
-    }
-  }
-
-  // Generic request method
+  // Generic request method with auth
   async makeRequest(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    const token = this.getToken();
-
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      credentials: 'include',
-      ...options,
-    };
-
-    console.log(`🌐 Admin API Request: ${config.method || 'GET'} ${url}`);
-
     try {
+      const token = localStorage.getItem('adminToken');
+      const url = `${this.baseURL}${endpoint}`;
+      
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+          ...options.headers,
+        },
+        ...options,
+      };
+
+      console.log(`🌐 Admin API Request: ${config.method || 'GET'} ${url}`);
+
       const response = await fetch(url, config);
       
       if (!response.ok) {
         if (response.status === 401) {
-          this.removeToken();
-          throw new Error('Session expired. Please login again.');
+          localStorage.removeItem('adminToken');
+          window.location.href = '/admin/login';
+          return;
         }
-        
-        let errorMessage;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
-        } catch {
-          errorMessage = `HTTP error! status: ${response.status}`;
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(`✅ Admin API Response:`, data);
-      
       return data;
     } catch (error) {
       console.error(`❌ Admin API Error for ${endpoint}:`, error);
@@ -94,96 +43,33 @@ class AdminApiService {
     }
   }
 
-  // Authentication endpoints
-  async login(credentials) {
-    try {
-      const response = await this.makeRequest('/auth/admin/login', {
-        method: 'POST',
-        body: JSON.stringify(credentials),
-      });
-
-      if (response.status === 'success' && response.token) {
-        this.setToken(response.token);
-        console.log('✅ Admin login successful:', response.user?.email);
-        return response;
-      }
-
-      throw new Error(response.message || 'Login failed');
-    } catch (error) {
-      console.error('❌ Admin login error:', error);
-      throw error;
-    }
+  // Health check
+  async healthCheck() {
+    return this.makeRequest('/health');
   }
 
-  async verifyToken() {
-    return this.makeRequest('/auth/verify');
+  // Authentication
+  async login(credentials) {
+    return this.makeRequest('/auth/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
   }
 
   async logout() {
-    try {
-      await this.makeRequest('/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.warn('Logout request failed:', error);
-    } finally {
-      this.removeToken();
-    }
+    localStorage.removeItem('adminToken');
+    return { success: true };
   }
 
-  // ONLY use Cloudinary URLs - ignore everything else
-  resolveImageUrl(nomination) {
-    console.log('🔍 Resolving image URL for:', nomination.submissionId);
-    
-    // ONLY accept Cloudinary URLs
-    if (nomination.nominee?.photo && 
-        typeof nomination.nominee.photo === 'string' && 
-        nomination.nominee.photo.includes('cloudinary')) {
-      console.log('✅ Using Cloudinary URL');
-      return nomination.nominee.photo;
-    }
-    
-    console.log('❌ No valid image URL found');
-    return null;
+  async getCurrentUser() {
+    return this.makeRequest('/auth/me');
   }
 
-  // Nominations endpoints
+  // Nominations Management
   async getNominations(params = {}) {
     const queryString = new URLSearchParams(params).toString();
     const endpoint = `/admin/nominations${queryString ? `?${queryString}` : ''}`;
-    const response = await this.makeRequest(endpoint);
-    
-    // Add image accessibility information
-    if (response.data?.nominations) {
-      const imageStats = {
-        total: response.data.nominations.length,
-        withCloudinary: 0,
-        withImages: 0,
-        accessible: 0
-      };
-
-      response.data.nominations = response.data.nominations.map(nomination => {
-        const imageUrl = this.resolveImageUrl(nomination);
-        
-        if (imageUrl) {
-          imageStats.withImages++;
-          imageStats.accessible++;
-          
-          if (imageUrl.includes('cloudinary')) {
-            imageStats.withCloudinary++;
-          }
-        }
-
-        return {
-          ...nomination,
-          _imageUrl: imageUrl,
-          _hasImage: !!imageUrl
-        };
-      });
-
-      console.log('📊 Nominations image availability summary:');
-      console.log(`  📈 Image stats:`, imageStats);
-    }
-
-    return response;
+    return this.makeRequest(endpoint);
   }
 
   async getNomination(id) {
@@ -207,7 +93,48 @@ class AdminApiService {
     return this.makeRequest('/admin/nominations/stats');
   }
 
-  // Categories endpoints
+  async exportNominations(format = 'csv') {
+    return this.makeRequest(`/admin/nominations/export?format=${format}`);
+  }
+
+  // Articles Management (if exists)
+  async getArticles(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/admin/articles${queryString ? `?${queryString}` : ''}`;
+    return this.makeRequest(endpoint);
+  }
+
+  async getArticle(id) {
+    return this.makeRequest(`/admin/articles/${id}`);
+  }
+
+  async createArticle(articleData) {
+    return this.makeRequest('/admin/articles', {
+      method: 'POST',
+      body: JSON.stringify(articleData),
+    });
+  }
+
+  async updateArticle(id, articleData) {
+    return this.makeRequest(`/admin/articles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(articleData),
+    });
+  }
+
+  async deleteArticle(id) {
+    return this.makeRequest(`/admin/articles/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async toggleArticlePublished(id) {
+    return this.makeRequest(`/admin/articles/${id}/toggle-published`, {
+      method: 'PATCH',
+    });
+  }
+
+  // Categories Management
   async getCategories() {
     return this.makeRequest('/admin/categories');
   }
@@ -232,57 +159,81 @@ class AdminApiService {
     });
   }
 
-  // System endpoints
-  async getSystemHealth() {
-    return this.makeRequest('/health');
+  // Dashboard Stats
+  async getDashboardStats() {
+    return this.makeRequest('/admin/dashboard/stats');
   }
 
-  // Test image accessibility
-  async testImageAccessibility() {
+  // File Management
+  async uploadFile(formData, type = 'general') {
     try {
-      const nominations = await this.getNominations({ limit: 50 });
+      const url = `${this.baseURL}/admin/upload/${type}`;
+      const token = localStorage.getItem('adminToken');
       
-      const testResults = {};
-      
-      for (const nomination of nominations.data.nominations) {
-        const imageUrl = this.resolveImageUrl(nomination);
-        
-        if (imageUrl) {
-          try {
-            const response = await fetch(imageUrl, { method: 'HEAD' });
-            testResults[nomination.submissionId] = {
-              accessible: response.ok,
-              url: imageUrl,
-              source: imageUrl.includes('cloudinary') ? 'cloudinary' : 
-                     imageUrl.includes('/uploads/') ? 'local-file' : 
-                     imageUrl.includes('adminAccessUrls') ? 'admin-url' : 'unknown'
-            };
-          } catch (error) {
-            testResults[nomination.submissionId] = {
-              accessible: false,
-              url: imageUrl,
-              error: error.message,
-              source: 'failed'
-            };
-          }
-        } else {
-          testResults[nomination.submissionId] = {
-            accessible: false,
-            url: null,
-            source: 'none'
-          };
-        }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData, // Don't set Content-Type for FormData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
       }
-      
-      console.log('🧪 Image accessibility test results:', testResults);
-      return testResults;
+
+      return await response.json();
     } catch (error) {
-      console.error('❌ Image accessibility test failed:', error);
-      return {};
+      console.error('❌ File upload failed:', error);
+      throw error;
     }
+  }
+
+  // Bulk Operations
+  async bulkUpdateNominations(ids, action, data = {}) {
+    return this.makeRequest('/admin/nominations/bulk', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, action, data }),
+    });
+  }
+
+  async bulkDeleteNominations(ids) {
+    return this.makeRequest('/admin/nominations/bulk', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids }),
+    });
+  }
+
+  // System Management
+  async getSystemInfo() {
+    return this.makeRequest('/admin/system/info');
+  }
+
+  async getSystemLogs(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/admin/system/logs${queryString ? `?${queryString}` : ''}`;
+    return this.makeRequest(endpoint);
+  }
+
+  async clearCache() {
+    return this.makeRequest('/admin/system/clear-cache', {
+      method: 'POST',
+    });
+  }
+
+  // Settings Management
+  async getSettings() {
+    return this.makeRequest('/admin/settings');
+  }
+
+  async updateSettings(settings) {
+    return this.makeRequest('/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
   }
 }
 
-// Create and export singleton instance
+// Create and export a singleton instance
 const adminApi = new AdminApiService();
 export default adminApi;
