@@ -1,4 +1,4 @@
-// File: backend/server.js - COMPLETE FIXED VERSION WITH IMAGE SUPPORT
+// File: backend/server.js - COMPLETE FIXED VERSION WITH CORS FIX
 
 const express = require("express");
 const cors = require("cors");
@@ -19,13 +19,14 @@ let isMongoConnected = false;
 let User, Nomination, Article;
 let authRoutes, articleRoutes, adminArticleRoutes, adminCategoryRoutes, adminNominationRoutes, adminSystemRoutes;
 
-// CORS Configuration
+// CORS Configuration - FIXED WITH PRODUCTION FRONTEND URL
 app.use(cors({
   origin: [
     "http://localhost:3000",  // Create React App
     "http://localhost:5173",  // Vite
     "http://localhost:3001",  // Alternative port
     "http://127.0.0.1:3000",  // Alternative localhost
+    "https://teendom-awards-frontend.onrender.com", // Production frontend URL
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true,
@@ -82,88 +83,62 @@ app.get('/api/debug/files', (req, res) => {
     const articleFiles = fs.existsSync(articlesDir) 
       ? fs.readdirSync(articlesDir) 
       : [];
-
+    
     res.json({
       status: 'success',
-      directories: {
-        uploads: uploadsDir,
-        nominations: nominationsDir,
-        articles: articlesDir
-      },
-      files: {
+      data: {
         nominations: nominationFiles,
-        articles: articleFiles
-      },
-      counts: {
-        nominations: nominationFiles.length,
-        articles: articleFiles.length
+        articles: articleFiles,
+        uploadsPath: uploadsDir
       }
     });
   } catch (error) {
-    res.json({
+    res.status(500).json({
       status: 'error',
-      message: error.message,
-      directories: {
-        uploads: uploadsDir,
-        nominations: nominationsDir,
-        articles: articlesDir
-      }
+      message: 'Failed to list files',
+      error: error.message
     });
   }
 });
 
-// Test endpoint for direct image access
-app.get('/api/test/image/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(nominationsDir, filename);
+// Initialize database connection
+console.log('🔗 Initializing database connection...');
+if (process.env.MONGODB_URI) {
+  const mongoose = require('mongoose');
   
-  console.log(`🔍 Testing image access: ${filename}`);
-  console.log(`🔍 Full path: ${filePath}`);
-  console.log(`🔍 File exists: ${fs.existsSync(filePath)}`);
-  
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.status(404).json({
-      error: 'File not found',
-      filename: filename,
-      path: filePath,
-      exists: false
-    });
-  }
-});
-
-// Database connection
-console.log('🔗 Attempting database connection...');
-let connectDB;
-try {
-  connectDB = require("./config/database");
-  console.log('✅ Database config loaded');
-} catch (error) {
-  console.error('❌ Database config not found:', error.message);
-  console.log('📝 Continuing with file-based storage only');
-}
-
-if (connectDB) {
-  connectDB()
+  mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  })
     .then(() => {
+      console.log('✅ MongoDB Connected:', mongoose.connection.host);
+      console.log('📊 Database:', mongoose.connection.name);
+      isMongoConnected = true;
+      
       console.log('🎯 Database connection successful, loading models...');
+      
       try {
         User = require('./models/User');
         console.log('✅ User model loaded');
-        
+      } catch (error) {
+        console.warn('⚠️ User model not found:', error.message);
+      }
+      
+      try {
         Nomination = require('./models/Nomination');
         console.log('✅ Nomination model loaded');
-        
+      } catch (error) {
+        console.warn('⚠️ Nomination model not found:', error.message);
+      }
+      
+      try {
         Article = require('./models/Article');
         console.log('✅ Article model loaded');
-        
-        isMongoConnected = true;
-        console.log('🎉 MongoDB + All Models ready!');
-      } catch (modelError) {
-        console.error('❌ Model loading failed:', modelError.message);
-        console.log('📝 Some models not available, features may be limited');
+      } catch (error) {
+        console.warn('⚠️ Article model not found:', error.message);
       }
+      
+      console.log('🎉 MongoDB + All Models ready!');
     })
     .catch(err => {
       console.error('❌ Database connection failed:', err.message);
@@ -258,407 +233,119 @@ app.get("/api/health", (req, res) => {
     message: "✅ Backend is healthy",
     timestamp: new Date().toISOString(),
     services: {
-      uploads: fs.existsSync(nominationsDir) ? "✅ Available" : "❌ Error",
-      mongodb: isMongoConnected ? "✅ Connected" : "❌ Disconnected",
+      uploads: fs.existsSync(nominationsDir) ? "✅ Available" : "❌ Not Available",
+      database: isMongoConnected ? "✅ Connected" : "❌ Not Connected",
       models: {
-        user: !!User ? "✅ Loaded" : "❌ Missing",
-        nomination: !!Nomination ? "✅ Loaded" : "❌ Missing",
-        article: !!Article ? "✅ Loaded" : "❌ Missing"
-      },
-      routes: {
-        auth: "✅ Loaded",
-        publicArticles: !!articleRoutes ? "✅ Available" : "❌ Missing",
-        publicNominations: !!publicNominationRoutes ? "✅ Available" : "❌ Missing",
-        adminArticles: !!adminArticleRoutes ? "✅ Available" : "❌ Missing",
-        adminCategories: !!adminCategoryRoutes ? "✅ Available" : "❌ Missing",
-        adminNominations: !!adminNominationRoutes ? "✅ Available" : "❌ Missing",
-        adminSystem: !!adminSystemRoutes ? "✅ Available" : "❌ Missing"
+        user: User ? "✅ Loaded" : "❌ Not Loaded",
+        nomination: Nomination ? "✅ Loaded" : "❌ Not Loaded", 
+        article: Article ? "✅ Loaded" : "❌ Not Loaded"
       }
-    }
+    },
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT
   };
   
+  console.log('🏥 Health check requested:', health);
   res.json(health);
 });
 
-// Main routes
-app.get("/", (req, res) => {
+// Root health check (fallback)
+app.get("/health", (req, res) => {
   res.json({
     status: "success",
-    message: "🚀 Teendom Backend API is running!",
-    version: "2.7.0",
-    timestamp: new Date().toISOString(),
-    features: {
-      mongodb: isMongoConnected,
-      authentication: !!User,
-      nominations: !!Nomination,
-      articles: !!Article,
-      adminPanel: !!(adminArticleRoutes && User),
-      staticFiles: true,
-      imageSupport: true
-    },
-    availableRoutes: {
-      health: '/api/health',
-      auth: '/api/auth/*',
-      nominations: '/api/nominations/*',
-      articles: '/api/articles/*',
-      admin: '/api/admin/*',
-      uploads: '/uploads/*',
-      debug: '/api/debug/files',
-      testImage: '/api/test/image/:filename'
-    }
+    message: "✅ Backend is healthy (root endpoint)",
+    timestamp: new Date().toISOString()
   });
 });
 
-// Mount routes
-console.log('🔗 Mounting routes...');
+// API Routes
+console.log('🛣️ Setting up API routes...');
+
+// Auth routes
+app.use("/api/auth", authRoutes);
 
 // Public routes
-app.use("/api/auth", authRoutes);
 app.use("/api/articles", articleRoutes);
 app.use("/api/nominations", publicNominationRoutes);
 
-// Admin routes
+// Admin routes (protected)
 if (adminArticleRoutes) {
   app.use("/api/admin/articles", adminArticleRoutes);
-  console.log('✅ Admin articles routes mounted at /api/admin/articles');
+  console.log('✅ Admin articles routes mounted');
 }
 
 if (adminCategoryRoutes) {
   app.use("/api/admin/categories", adminCategoryRoutes);
-  console.log('✅ Admin categories routes mounted at /api/admin/categories');
+  console.log('✅ Admin categories routes mounted');
 }
 
 if (adminNominationRoutes) {
   app.use("/api/admin/nominations", adminNominationRoutes);
-  console.log('✅ Admin nomination routes mounted at /api/admin/nominations');
+  console.log('✅ Admin nominations routes mounted');
 }
 
 if (adminSystemRoutes) {
   app.use("/api/admin/system", adminSystemRoutes);
-  console.log('✅ Admin system routes mounted at /api/admin/system');
+  console.log('✅ Admin system routes mounted');
 }
 
-// Multer configuration for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    let uploadPath = nominationsDir; // Default
-    
-    // Determine upload path based on fieldname or route
-    if (file.fieldname === 'nomineePhoto' || file.fieldname === 'supportingFiles') {
-      uploadPath = nominationsDir;
-    } else if (file.fieldname === 'articleImage') {
-      uploadPath = articlesDir;
-    }
-    
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname);
-    const filename = `${file.fieldname}-${uniqueSuffix}${extension}`;
-    cb(null, filename);
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB per file
-    files: 6 // Max 6 files
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf', 'application/msword', 
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'video/mp4', 'video/quicktime', 'video/x-msvideo'
-    ];
-    
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type not allowed: ${file.mimetype}`), false);
-    }
-  }
-});
-
-// ENHANCED NOMINATIONS SUBMISSION ENDPOINT WITH BETTER IMAGE HANDLING
-app.post('/api/nominations', 
-  upload.fields([
-    { name: 'nomineePhoto', maxCount: 1 },
-    { name: 'supportingFiles', maxCount: 5 }
-  ]), 
-  async (req, res) => {
-    try {
-      console.log('📥 Nomination submission received');
-      console.log('📋 Form data:', req.body);
-      console.log('📁 Files:', req.files);
-
-      const submissionId = `TEEN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
-      // Process uploaded files with better error handling
-      const uploadedFiles = {
-        photo: null,
-        supportingFiles: []
-      };
-
-      // Handle nominee photo
-      if (req.files?.nomineePhoto?.[0]) {
-        const photoFile = req.files.nomineePhoto[0];
-        uploadedFiles.photo = {
-          filename: photoFile.filename,
-          originalName: photoFile.originalname,
-          mimetype: photoFile.mimetype,
-          size: photoFile.size,
-          url: `/uploads/nominations/${photoFile.filename}` // Direct URL
-        };
-        console.log('📸 Photo processed:', uploadedFiles.photo);
-      }
-
-      // Handle supporting files
-      if (req.files?.supportingFiles) {
-        uploadedFiles.supportingFiles = req.files.supportingFiles.map(file => ({
-          filename: file.filename,
-          originalName: file.originalname,
-          mimetype: file.mimetype,
-          size: file.size,
-          url: `/uploads/nominations/${file.filename}`
-        }));
-        console.log('📎 Supporting files processed:', uploadedFiles.supportingFiles.length);
-      }
-
-      // Upload to Cloudinary (if available)
-      const cloudinaryUploads = {
-        photo: null,
-        supportingFiles: []
-      };
-
-      try {
-        const cloudinaryUtils = require('./utils/cloudinaryUtils');
-        
-        // Upload photo to Cloudinary
-        if (uploadedFiles.photo) {
-          console.log('☁️ Uploading photo to Cloudinary...');
-          const photoPath = path.join(nominationsDir, uploadedFiles.photo.filename);
-          const cloudinaryResult = await cloudinaryUtils.uploadNomineePhoto(
-            { path: photoPath },
-            submissionId
-          );
-          
-          if (cloudinaryResult.success) {
-            cloudinaryUploads.photo = {
-              url: cloudinaryResult.url,
-              publicId: cloudinaryResult.publicId,
-              variations: cloudinaryResult.variations
-            };
-            console.log('☁️ ✅ Photo uploaded to Cloudinary:', cloudinaryResult.url);
-          }
-        }
-
-        // Upload supporting files to Cloudinary
-        for (let i = 0; i < uploadedFiles.supportingFiles.length; i++) {
-          const file = uploadedFiles.supportingFiles[i];
-          const filePath = path.join(nominationsDir, file.filename);
-          
-          try {
-            const cloudinaryResult = await cloudinaryUtils.uploadSupportingDocument(
-              { path: filePath },
-              submissionId,
-              i
-            );
-            
-            if (cloudinaryResult.success) {
-              cloudinaryUploads.supportingFiles.push({
-                url: cloudinaryResult.url,
-                publicId: cloudinaryResult.publicId,
-                originalName: file.originalName
-              });
-              console.log(`☁️ ✅ Supporting file ${i + 1} uploaded to Cloudinary`);
-            }
-          } catch (error) {
-            console.error(`☁️ ❌ Supporting file ${i + 1} upload failed:`, error);
-          }
-        }
-      } catch (cloudinaryError) {
-        console.warn('☁️ ⚠️ Cloudinary not available:', cloudinaryError.message);
-      }
-
-      // Build nomination record with ENHANCED IMAGE URLS
-      const nominationRecord = {
-        submissionId: submissionId,
-        submittedAt: new Date(),
-        status: 'submitted',
-        
-        // Nominee information
-        nominee: {
-          firstName: req.body.nomineeFirstName,
-          lastName: req.body.nomineeLastName,
-          email: req.body.nomineeEmail,
-          phone: req.body.nomineePhone,
-          location: req.body.nomineeLocation,
-          school: req.body.nomineeSchool
-        },
-        
-        // Nominator information
-        nominator: {
-          firstName: req.body.nominatorFirstName,
-          lastName: req.body.nominatorLastName,
-          email: req.body.nominatorEmail,
-          phone: req.body.nominatorPhone,
-          relationship: req.body.relationship
-        },
-        
-        // Nomination details
-        awardCategory: req.body.awardCategory,
-        nominationReason: req.body.nominationReason,
-        supportingEvidence: req.body.supportingEvidence,
-        
-        // File storage (local)
-        files: {
-          photo: uploadedFiles.photo,
-          supportingFiles: uploadedFiles.supportingFiles
-        },
-        
-        // Cloudinary URLs (CDN)
-        cloudinary: {
-          photo: cloudinaryUploads.photo,
-          supportingFiles: cloudinaryUploads.supportingFiles
-        },
-        
-        // ENHANCED: Admin access URLs - provide the BEST available URL
-        adminAccessUrls: {
-          nomineePhoto: cloudinaryUploads.photo?.url || 
-                       (uploadedFiles.photo ? `http://localhost:${PORT}/uploads/nominations/${uploadedFiles.photo.filename}` : null),
-          supportingFiles: [
-            ...cloudinaryUploads.supportingFiles.map(file => file.url),
-            ...uploadedFiles.supportingFiles.map(file => `http://localhost:${PORT}/uploads/nominations/${file.filename}`)
-          ]
-        }
-      };
-      
-      // Save to database with REAL URLs
-      let mongoId = null;
-      let savedToMongo = false;
-      
-      if (Nomination) {
-        try {
-          const newNomination = new Nomination(nominationRecord);
-          const savedNomination = await newNomination.save();
-          mongoId = savedNomination._id;
-          savedToMongo = true;
-          console.log('✅ Saved to MongoDB with REAL URLs:', mongoId);
-          console.log('🔍 Admin photo URL:', nominationRecord.adminAccessUrls.nomineePhoto);
-        } catch (mongoSaveError) {
-          console.error('❌ MongoDB save failed:', mongoSaveError.message);
-        }
-      }
-      
-      // Save backup to file system
-      const backupPath = path.join(nominationsDataDir, `nomination-${submissionId}.json`);
-      let savedToFile = false;
-      try {
-        fs.writeFileSync(backupPath, JSON.stringify(nominationRecord, null, 2));
-        savedToFile = true;
-        console.log('✅ Backup saved to file system');
-      } catch (fileError) {
-        console.error('❌ File backup failed:', fileError.message);
-      }
-      
-      // FIXED: Return response with REAL URLs that frontend can display
-      res.status(201).json({
-        status: 'success',
-        message: 'Nomination submitted successfully',
-        submissionId: submissionId,
-        data: {
-          submissionId: submissionId,
-          status: 'submitted',
-          storage: {
-            mongodb: savedToMongo,
-            mongoId: mongoId ? mongoId.toString() : null,
-            fileBackup: savedToFile
-          },
-          files: {
-            photo: {
-              // FIXED: Return REAL URLs that admins can access
-              cloudinary: cloudinaryUploads.photo?.url || null,
-              local: uploadedFiles.photo?.filename || null,
-              adminUrl: nominationRecord.adminAccessUrls.nomineePhoto
-            },
-            supportingFiles: {
-              cloudinary: cloudinaryUploads.supportingFiles.length,
-              local: uploadedFiles.supportingFiles.length,
-              adminUrls: nominationRecord.adminAccessUrls.supportingFiles
-            }
-          }
-        }
-      });
-      
-    } catch (error) {
-      console.error('💥 Nomination submission error:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'Failed to process nomination',
-        error: error.message
-      });
-    }
-  }
-);
-
-// 404 handler for API routes
-app.use('/api/*', (req, res) => {
-  res.status(404).json({
-    status: 'error',
-    message: `Route ${req.method} ${req.originalUrl} not found`,
-    availableRoutes: {
-      health: 'GET /api/health',
-      auth: 'POST /api/auth/login',
-      nominations: 'POST /api/nominations',
-      adminArticles: 'GET /api/admin/articles/stats/overview',
-      adminCategories: 'GET /api/admin/categories',
-      adminNominations: 'GET /api/admin/nominations',
-      adminSystem: 'GET /api/admin/system/health',
-      debug: 'GET /api/debug/files'
-    }
+// Generic admin endpoint
+app.get("/api/admin", (req, res) => {
+  res.json({
+    status: 'success',
+    message: '✅ Admin API is available',
+    endpoints: [
+      adminArticleRoutes ? '/api/admin/articles' : null,
+      adminCategoryRoutes ? '/api/admin/categories' : null, 
+      adminNominationRoutes ? '/api/admin/nominations' : null,
+      adminSystemRoutes ? '/api/admin/system' : null
+    ].filter(Boolean)
   });
 });
 
 // Global error handler
 app.use((error, req, res, next) => {
-  console.error('💥 Unhandled error:', error);
-  res.status(500).json({
+  console.error('❌ Global error handler:', error);
+  
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'File too large. Maximum size is 50MB per file.'
+      });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Too many files. Maximum is 6 files total.'
+      });
+    }
+  }
+  
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  res.status(error.status || 500).json({
     status: 'error',
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    message: error.message || 'Internal server error',
+    ...(isDevelopment && { stack: error.stack })
+  });
+});
+
+// 404 handler for undefined routes
+app.all('*', (req, res) => {
+  console.log(`❓ 404: ${req.method} ${req.url}`);
+  res.status(404).json({
+    status: 'error',
+    message: `Route ${req.method} ${req.url} not found`
   });
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`
-🎯 ===== SERVER READY =====
-🚀 Port: ${PORT}
-🌐 Frontend: http://localhost:3000
-🔗 Backend: http://localhost:${PORT}
-📊 Health: http://localhost:${PORT}/api/health
-📁 Debug Files: http://localhost:${PORT}/api/debug/files
-📁 Static Files: http://localhost:${PORT}/uploads/
-🖼️  Test Image: http://localhost:${PORT}/api/test/image/[filename]
-
-📋 Status Summary:
-   Database: ${isMongoConnected ? '✅ Connected' : '❌ Disconnected'}
-   Auth: ${!!User ? '✅ Ready' : '❌ No User Model'}
-   Articles: ${!!Article ? '✅ Ready' : '❌ No Article Model'}
-   Nominations: ${!!Nomination ? '✅ Ready' : '❌ No Nomination Model'}
-   Admin Articles: ${!!adminArticleRoutes ? '✅ Mounted' : '❌ Not Available'}
-   Admin Nominations: ${!!adminNominationRoutes ? '✅ Mounted' : '❌ Not Available'}
-   Admin System: ${!!adminSystemRoutes ? '✅ Mounted' : '❌ Not Available'}
-   Static Files: ✅ Served from ${uploadsDir}
-   Nominations Dir: ✅ ${nominationsDir}
-   Image Support: ✅ Enhanced with fallbacks
-
-🎉 Server ready with perfect image handling!
-=============================
-  `);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🎉 Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📂 Uploads directory: ${uploadsDir}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`📚 Admin endpoint: http://localhost:${PORT}/api/admin`);
+  console.log('✅ Backend is ready to accept requests!');
 });
-
-module.exports = app;
