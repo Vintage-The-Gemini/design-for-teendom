@@ -1,283 +1,389 @@
-// File: /backend/server.js - FIXED: Wait for MongoDB before starting server
-
+// File: backend/server.js - COMPLETELY FIXED VERSION
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// CORS Configuration
+// Enhanced CORS configuration
 const corsOptions = {
   origin: [
     'http://localhost:3000',
-    'http://127.0.0.1:3000',
     'http://localhost:5173',
+    'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
-    'https://teendom-awards-frontend.onrender.com',
-    'https://design-for-teendom.onrender.com',
     process.env.FRONTEND_URL,
+    'https://design-for-teendom.netlify.app', // Add your deployed frontend
   ].filter(Boolean),
   credentials: true,
+  optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  optionsSuccessStatus: 200
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
-// Body parsing middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.set('trust proxy', 1);
 
-// Static files serving
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsDir));
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`🌐 ${new Date().toISOString()} - ${req.method} ${req.path}`);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log(`📦 Body keys: ${Object.keys(req.body)}`);
-  }
-  next();
-});
-
-// ✅ FIXED: Database connection and server startup
+// Global variables for models and connection status
+let User, Nomination, Article, Judge, Vote, Award;
 let isMongoConnected = false;
-let User, Nomination, Article;
 
-const connectDatabaseAndStartServer = async () => {
-  try {
-    console.log('🔗 Connecting to MongoDB...');
-    
-    if (!process.env.MONGODB_URI) {
-      throw new Error('MONGODB_URI environment variable is not set');
-    }
+// FIXED: Proper database initialization with retry logic
+const initializeDatabase = async () => {
+  const MAX_RETRIES = 3;
+  let retryCount = 0;
 
-    // ✅ WAIT for MongoDB connection
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    isMongoConnected = true;
-    console.log('✅ Connected to MongoDB successfully');
-
-    // ✅ ONLY load models AFTER successful connection
+  while (retryCount < MAX_RETRIES) {
     try {
-      User = require('./models/User');
-      console.log('✅ User model loaded');
-    } catch (error) {
-      console.warn('⚠️ User model not found:', error.message);
-    }
+      console.log(`\n🔗 Database Initialization Attempt ${retryCount + 1}/${MAX_RETRIES}`);
+      console.log('===============================================');
+      
+      // Import and connect to database
+      const { connectDB, getConnectionStatus } = require('./config/database');
+      
+      // Establish connection with timeout
+      console.log('🔌 Establishing Atlas connection...');
+      const connection = await Promise.race([
+        connectDB(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout after 60 seconds')), 60000)
+        )
+      ]);
+      
+      if (!connection) {
+        throw new Error('Database connection returned null');
+      }
 
+      // Verify connection is actually working
+      const status = getConnectionStatus();
+      console.log('🔍 Connection Status:', status);
+      
+      if (status.readyState !== 1) {
+        throw new Error(`Connection not ready. State: ${status.readyState}`);
+      }
+
+      // Connection successful - load models
+      isMongoConnected = true;
+      console.log('✅ Atlas connection verified! Loading models...');
+      
+      // Load all models AFTER successful connection
+      await loadModels();
+      
+      // Test model functionality
+      await testModels();
+      
+      console.log('🎉 Database initialization completed successfully!');
+      return true;
+      
+    } catch (error) {
+      retryCount++;
+      console.error(`❌ Database initialization failed (attempt ${retryCount}):`, error.message);
+      
+      if (retryCount < MAX_RETRIES) {
+        console.log(`🔄 Retrying in 5 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      } else {
+        console.error('💥 All database connection attempts failed!');
+        console.error('🚫 Starting server in FILE-ONLY mode...');
+        isMongoConnected = false;
+        break;
+      }
+    }
+  }
+  
+  return isMongoConnected;
+};
+
+// Load all models after successful DB connection
+const loadModels = async () => {
+  try {
+    console.log('📦 Loading database models...');
+    
+    // Load core models
     try {
       Nomination = require('./models/Nomination');
       console.log('✅ Nomination model loaded');
     } catch (error) {
-      console.error('❌ CRITICAL: Nomination model not found:', error.message);
+      console.error('❌ Failed to load Nomination model:', error.message);
+      throw error; // Nomination model is critical
     }
-
+    
+    try {
+      User = require('./models/User');
+      console.log('✅ User model loaded');
+    } catch (error) {
+      console.warn('⚠️ User model not found (optional)');
+    }
+    
     try {
       Article = require('./models/Article');
       console.log('✅ Article model loaded');
     } catch (error) {
-      console.warn('⚠️ Article model not found:', error.message);
+      console.warn('⚠️ Article model not found (optional)');
     }
-
-    // ✅ ONLY load routes AFTER database and models are ready
-    await loadRoutes();
-
-    // ✅ ONLY start server AFTER everything is ready
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log('🚀 SERVER STARTED SUCCESSFULLY');
-      console.log(`📍 Server running on port ${PORT}`);
-      console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`💾 Database: ${isMongoConnected ? 'Connected' : 'Disconnected'}`);
-      console.log('📍 Available endpoints:');
-      console.log('   - GET /health');
-      console.log('   - GET /api/debug/routes');
-      console.log('   - GET /api/nominations/test');
-      console.log('   - POST /api/nominations');
-      console.log(`🔗 CORS enabled for:`, corsOptions.origin);
-    });
-
-  } catch (error) {
-    console.error('❌ Database connection failed:', error);
-    console.log('⚠️ Server will start without database (limited functionality)');
-    isMongoConnected = false;
     
-    // Start server anyway but with limited functionality
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log('⚠️ SERVER STARTED WITHOUT DATABASE');
-      console.log(`📍 Server running on port ${PORT} (LIMITED MODE)`);
-    });
+    try {
+      Judge = require('./models/Judge');
+      console.log('✅ Judge model loaded');
+    } catch (error) {
+      console.warn('⚠️ Judge model not found (optional)');
+    }
+    
+    try {
+      Vote = require('./models/Vote');
+      console.log('✅ Vote model loaded');
+    } catch (error) {
+      console.warn('⚠️ Vote model not found (optional)');
+    }
+    
+    try {
+      Award = require('./models/Award');
+      console.log('✅ Award model loaded');
+    } catch (error) {
+      console.warn('⚠️ Award model not found (optional)');
+    }
+    
+    console.log('📦 Model loading completed');
+    
+  } catch (error) {
+    console.error('❌ Critical error loading models:', error.message);
+    throw error;
   }
 };
 
-// ✅ Load routes function
-const loadRoutes = async () => {
+// Test models to ensure they work with the database
+const testModels = async () => {
   try {
-    const authRoutes = require("./routes/auth");
-    app.use("/api/auth", authRoutes);
-    console.log('✅ Auth routes loaded');
+    console.log('🧪 Testing database models...');
+    
+    if (Nomination) {
+      const count = await Nomination.countDocuments();
+      console.log(`📊 Existing nominations: ${count}`);
+      
+      // Test creating a simple query (without saving)
+      const testQuery = Nomination.find({}).limit(1);
+      console.log('✅ Nomination model queries working');
+    }
+    
+    if (User) {
+      const userCount = await User.countDocuments();
+      console.log(`👤 Existing users: ${userCount}`);
+    }
+    
+    if (Article) {
+      const articleCount = await Article.countDocuments();
+      console.log(`📝 Existing articles: ${articleCount}`);
+    }
+    
+    console.log('✅ Model tests completed successfully');
+    
   } catch (error) {
-    console.error('❌ Auth routes failed:', error.message);
+    console.error('❌ Model testing failed:', error.message);
+    throw error;
   }
+};
 
+// CRITICAL: Enhanced server startup with proper waiting
+const startServer = async () => {
+  console.log('\n🚀 TEENDOM AWARDS BACKEND STARTUP');
+  console.log('=====================================');
+  
+  try {
+    // Step 1: Initialize database FIRST and wait for completion
+    console.log('📊 Step 1: Database initialization...');
+    const dbSuccess = await initializeDatabase();
+    
+    // Step 2: Create upload directories
+    console.log('📊 Step 2: Setting up file directories...');
+    const uploadsDir = path.join(__dirname, 'uploads');
+    const nominationsDir = path.join(uploadsDir, 'nominations');
+    const articlesDir = path.join(uploadsDir, 'articles');
+    
+    [uploadsDir, nominationsDir, articlesDir].forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`📁 Created directory: ${dir}`);
+      }
+    });
+
+    // Step 3: Serve static files
+    app.use('/uploads', express.static(uploadsDir));
+    console.log('📁 Static file serving configured');
+
+    // Step 4: Setup routes AFTER database is ready
+    console.log('📊 Step 3: Loading API routes...');
+    setupRoutes(nominationsDir, articlesDir, uploadsDir);
+    
+    // Step 5: Start the server
+    const server = app.listen(PORT, () => {
+      console.log('\n🎉 =====================================');
+      console.log(`🌟 TEENDOM AWARDS BACKEND IS LIVE!`);
+      console.log(`🚀 Server: http://localhost:${PORT}`);
+      console.log(`🔗 Database: ${isMongoConnected ? '✅ ATLAS CONNECTED' : '⚠️ FILE-ONLY MODE'}`);
+      console.log(`📊 Models: ${isMongoConnected ? Object.keys(mongoose.models).length : 0} loaded`);
+      console.log(`📂 Uploads: ${uploadsDir}`);
+      console.log(`🎯 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🕒 Started: ${new Date().toISOString()}`);
+      console.log('🎉 =====================================\n');
+      
+      // Final database status
+      if (isMongoConnected) {
+        console.log('✅ Ready to receive nominations and save to Atlas!');
+      } else {
+        console.log('⚠️ WARNING: Database not connected - nominations will only save to files');
+        console.log('🔧 Check your .env MONGODB_URI and Atlas network settings');
+      }
+    });
+
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      console.log('\n🛑 Shutting down server gracefully...');
+      server.close(() => {
+        console.log('🔒 HTTP server closed');
+      });
+      
+      if (isMongoConnected && mongoose.connection.readyState === 1) {
+        await mongoose.connection.close();
+        console.log('🔒 Database connection closed');
+      }
+      
+      process.exit(0);
+    });
+    
+  } catch (error) {
+    console.error('💥 FATAL ERROR: Server startup failed');
+    console.error('❌ Error:', error.message);
+    console.error('🔍 Stack:', error.stack);
+    process.exit(1);
+  }
+};
+
+// Setup all routes after database initialization
+const setupRoutes = (nominationsDir, articlesDir, uploadsDir) => {
+  // Enhanced health check with full diagnostics
+  app.get("/api/health", (req, res) => {
+    const health = {
+      status: "success",
+      message: "🎯 Teendom Awards Backend is healthy",
+      timestamp: new Date().toISOString(),
+      services: {
+        server: "✅ Running",
+        uploads: fs.existsSync(nominationsDir) ? "✅ Available" : "❌ Not Available",
+        database: isMongoConnected ? "✅ Atlas Connected" : "❌ Not Connected",
+      },
+      database: {
+        connected: isMongoConnected,
+        readyState: mongoose.connection.readyState,
+        host: mongoose.connection.host || 'N/A',
+        name: mongoose.connection.name || 'N/A'
+      },
+      models: {
+        user: User ? "✅ Loaded" : "❌ Not Loaded",
+        nomination: Nomination ? "✅ Loaded" : "❌ Not Loaded",
+        article: Article ? "✅ Loaded" : "❌ Not Loaded",
+        judge: Judge ? "✅ Loaded" : "❌ Not Loaded",
+        vote: Vote ? "✅ Loaded" : "❌ Not Loaded",
+        award: Award ? "✅ Loaded" : "❌ Not Loaded"
+      },
+      environment: {
+        nodeEnv: process.env.NODE_ENV || 'development',
+        port: PORT,
+        mongoUri: process.env.MONGODB_URI ? '✅ Configured' : '❌ Missing'
+      }
+    };
+    
+    console.log(`🏥 Health check requested - Status: ${isMongoConnected ? 'HEALTHY' : 'DEGRADED'}`);
+    res.json(health);
+  });
+
+  // Load route modules with error handling
   try {
     const publicNominationRoutes = require("./routes/public/nominations");
     app.use("/api/nominations", publicNominationRoutes);
     console.log('✅ Public nominations routes loaded');
   } catch (error) {
-    console.error('❌ CRITICAL: Public nominations routes failed:', error.message);
-  }
-
-  try {
-    const articleRoutes = require("./routes/articles");
-    app.use("/api/articles", articleRoutes);
-    console.log('✅ Articles routes loaded');
-  } catch (error) {
-    console.warn('⚠️ Articles routes not found:', error.message);
+    console.error('❌ Failed to load public nominations routes:', error.message);
   }
 
   try {
     const adminNominationRoutes = require("./routes/admin/nominations");
     app.use("/api/admin/nominations", adminNominationRoutes);
-    console.log('✅ Admin nomination routes loaded');
+    console.log('✅ Admin nominations routes loaded');
   } catch (error) {
-    console.warn('⚠️ Admin nomination routes not found:', error.message);
+    console.error('❌ Failed to load admin nominations routes:', error.message);
   }
 
   try {
-    const adminArticleRoutes = require("./routes/admin/articles");
-    app.use("/api/admin/articles", adminArticleRoutes);
-    console.log('✅ Admin articles routes loaded');
+    const authRoutes = require("./routes/auth");
+    app.use("/api/auth", authRoutes);
+    console.log('✅ Auth routes loaded');
   } catch (error) {
-    console.warn('⚠️ Admin articles routes not found:', error.message);
+    console.warn('⚠️ Auth routes not found (optional)');
   }
-};
 
-// Enhanced health check endpoint
-app.get('/health', (req, res) => {
-  const health = {
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    services: {
-      api: "✅ Available",
-      database: isMongoConnected ? "✅ Connected" : "❌ Not Connected",
-      models: {
-        user: User ? "✅ Loaded" : "❌ Not Loaded",
-        nomination: Nomination ? "✅ Loaded" : "❌ Not Loaded",
-        article: Article ? "✅ Loaded" : "❌ Not Loaded"
-      }
-    },
-    mongoUri: process.env.MONGODB_URI ? 'Set' : 'Not Set',
-    cors: {
-      enabled: true,
-      allowedOrigins: corsOptions.origin
-    }
-  };
-  
-  console.log('🏥 Health check requested:', health);
-  res.json(health);
-});
+  try {
+    const articleRoutes = require("./routes/articles");
+    app.use("/api/articles", articleRoutes);
+    console.log('✅ Article routes loaded');
+  } catch (error) {
+    console.warn('⚠️ Article routes not found (optional)');
+  }
 
-// Test endpoints
-app.get('/api/nominations/test', (req, res) => {
-  console.log('🧪 Test route hit - nominations endpoint is working');
-  res.json({
-    status: 'success',
-    message: 'Nominations route is working!',
-    timestamp: new Date().toISOString(),
-    endpoint: '/api/nominations/test',
-    databaseConnected: isMongoConnected
-  });
-});
-
-// Debug routes endpoint
-app.get('/api/debug/routes', (req, res) => {
-  const routes = [];
-  
-  app._router.stack.forEach((middleware) => {
-    if (middleware.route) {
-      routes.push({
-        path: middleware.route.path,
-        methods: Object.keys(middleware.route.methods)
-      });
-    } else if (middleware.name === 'router') {
-      middleware.handle.stack.forEach((handler) => {
-        if (handler.route) {
-          const basePath = middleware.regexp.toString().match(/^\/\^\\?(.*?)\\\?\$?\//)?.[1] || '';
-          routes.push({
-            path: basePath + handler.route.path,
-            methods: Object.keys(handler.route.methods)
-          });
+  // Debug endpoint for file listing
+  app.get('/api/debug/files', (req, res) => {
+    try {
+      const nominationFiles = fs.existsSync(nominationsDir) ? fs.readdirSync(nominationsDir) : [];
+      const articleFiles = fs.existsSync(articlesDir) ? fs.readdirSync(articlesDir) : [];
+      
+      res.json({
+        status: 'success',
+        data: {
+          nominations: nominationFiles.length,
+          articles: articleFiles.length,
+          uploadsPath: uploadsDir,
+          mongoConnected: isMongoConnected,
+          connectionState: mongoose.connection.readyState,
+          modelsLoaded: {
+            User: !!User,
+            Nomination: !!Nomination,
+            Article: !!Article,
+            Judge: !!Judge,
+            Vote: !!Vote,
+            Award: !!Award
+          }
         }
       });
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to list files',
+        error: error.message
+      });
     }
   });
 
-  res.json({
-    status: 'success',
-    databaseConnected: isMongoConnected,
-    totalRoutes: routes.length,
-    routes: routes.sort((a, b) => a.path.localeCompare(b.path))
-  });
-});
+  console.log('🔗 All routes configured');
+};
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err.message);
-  console.error('Stack:', err.stack);
-  
-  res.status(500).json({
-    status: 'error',
-    message: 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { 
-      error: err.message,
-      stack: err.stack 
-    })
-  });
-});
+// Export the models for use in other files
+module.exports = {
+  app,
+  User,
+  Nomination,
+  Article,
+  Judge,
+  Vote,
+  Award,
+  isMongoConnected: () => isMongoConnected
+};
 
-// 404 handler
-app.use('*', (req, res) => {
-  console.log(`❌ 404 - Route not found: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({
-    status: 'error',
-    message: `Route ${req.method} ${req.originalUrl} not found`,
-    availableRoutes: [
-      'GET /health',
-      'GET /api/debug/routes',
-      'GET /api/nominations/test',
-      'POST /api/nominations'
-    ]
-  });
+// Start the server
+startServer().catch(error => {
+  console.error('💥 CRITICAL STARTUP ERROR:', error);
+  process.exit(1);
 });
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('🔄 SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('🔄 SIGINT received, shutting down gracefully');
-  process.exit(0);
-});
-
-// ✅ START THE PROCESS
-connectDatabaseAndStartServer();

@@ -1,87 +1,140 @@
-// File: backend/config/database.js - FIXED VERSION
+// File: backend/config/database.js - HOTFIX FOR MONGOOSE VERSION
 const mongoose = require('mongoose');
 
+// Global connection state
+let isConnected = false;
+let connectionPromise = null;
+
 const connectDB = async () => {
+  // Return existing connection if available
+  if (isConnected && mongoose.connection.readyState === 1) {
+    console.log('🔄 Using existing MongoDB connection');
+    return mongoose.connection;
+  }
+
+  // Return existing connection promise if already connecting
+  if (connectionPromise) {
+    console.log('🔄 Waiting for existing connection attempt...');
+    return connectionPromise;
+  }
+
   try {
+    console.log('🔌 Initializing MongoDB Atlas connection...');
+    
     // Load environment variables
     require('dotenv').config();
     
-    // MongoDB connection string with better fallback
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/teendom_awards';
+    const mongoURI = process.env.MONGODB_URI;
     
-    console.log('🔌 Connecting to MongoDB...');
-    console.log('📍 Database URL:', mongoURI.replace(/\/\/.*:.*@/, '//***:***@'));
-    
-    // Fixed connection options - removed unsupported options
-    const conn = await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 10000,
+    if (!mongoURI) {
+      throw new Error('❌ MONGODB_URI not found in environment variables');
+    }
+
+    console.log('📍 Connecting to Atlas cluster...');
+    console.log('🔗 URI Format Check:', mongoURI.startsWith('mongodb+srv://') ? '✅ Valid Atlas URI' : '❌ Invalid URI');
+
+    // Disconnect any existing connection
+    if (mongoose.connection.readyState !== 0) {
+      console.log('🔄 Closing existing connection...');
+      await mongoose.disconnect();
+    }
+
+    // HOTFIX: Minimal connection options for modern Mongoose
+    const connectionOptions = {
+      serverSelectionTimeoutMS: 10000, // 10 seconds
       socketTimeoutMS: 45000,
-      family: 4
-    });
+      connectTimeoutMS: 10000
+    };
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-    console.log(`📊 Database: ${conn.connection.name}`);
+    console.log('🔗 Attempting connection with minimal options...');
+
+    // Create connection promise
+    connectionPromise = mongoose.connect(mongoURI, connectionOptions);
     
-    // Enhanced connection event handlers
-    mongoose.connection.on('connected', () => {
-      console.log('🟢 MongoDB connection established');
-    });
-
-    mongoose.connection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err);
-    });
-
-    mongoose.connection.on('disconnected', () => {
-      console.log('🔴 MongoDB disconnected');
-    });
-
-    mongoose.connection.on('reconnected', () => {
-      console.log('🔄 MongoDB reconnected');
-    });
-
-    // Test the connection by performing a simple operation
+    // Await the connection
+    const conn = await connectionPromise;
+    
+    // Test connection immediately
+    console.log('🏓 Testing connection with ping...');
     await mongoose.connection.db.admin().ping();
-    console.log('🏓 Database ping successful');
-
+    
+    // Success!
+    isConnected = true;
+    console.log('🎉 MongoDB Atlas Connected Successfully!');
+    console.log(`✅ Host: ${conn.connection.host}`);
+    console.log(`✅ Database: ${conn.connection.name}`);
+    console.log(`✅ Ready State: ${mongoose.connection.readyState}`);
+    
+    // Setup event handlers
+    setupEventHandlers();
+    
+    // Clear the promise
+    connectionPromise = null;
+    
     return conn;
+
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    console.error('🔍 Full error:', error);
+    isConnected = false;
+    connectionPromise = null;
     
-    // Provide specific error guidance
-    if (error.message.includes('ECONNREFUSED')) {
-      console.log('💡 MongoDB service is not running. Start it with:');
-      console.log('   • Mac: brew services start mongodb-community');
-      console.log('   • Windows: Start MongoDB service from Services panel');
-      console.log('   • Linux: sudo systemctl start mongod');
-    }
+    console.error('❌ MongoDB Atlas Connection Failed:');
+    console.error('🔍 Error Message:', error.message);
     
-    if (error.message.includes('authentication')) {
-      console.log('💡 Database authentication failed. Check your credentials.');
-    }
-    
-    if (error.message.includes('timeout')) {
-      console.log('💡 Connection timeout. Check if MongoDB is accessible.');
-    }
-    
-    throw error; // Re-throw to handle in server.js
+    // Re-throw for handling in server.js
+    throw error;
   }
+};
+
+// Event handlers for connection monitoring
+const setupEventHandlers = () => {
+  mongoose.connection.on('connected', () => {
+    console.log('🟢 Atlas connection established');
+    isConnected = true;
+  });
+
+  mongoose.connection.on('error', (err) => {
+    console.error('❌ Atlas connection error:', err.message);
+    isConnected = false;
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    console.log('🔴 Atlas disconnected');
+    isConnected = false;
+  });
+
+  mongoose.connection.on('reconnected', () => {
+    console.log('🔄 Atlas reconnected');
+    isConnected = true;
+  });
 };
 
 // Test connection function
 const testConnection = async () => {
   try {
-    await connectDB();
-    console.log('🎉 Database connection test successful!');
-    await mongoose.disconnect();
-    return true;
+    const conn = await connectDB();
+    console.log('🎯 Connection test successful!');
+    
+    return { success: true, connection: conn };
   } catch (error) {
-    console.error('❌ Database connection test failed:', error.message);
-    return false;
+    console.error('❌ Connection test failed:', error.message);
+    return { success: false, error: error.message };
   }
 };
 
-module.exports = connectDB;
+// Get connection status
+const getConnectionStatus = () => {
+  return {
+    isConnected: isConnected,
+    readyState: mongoose.connection.readyState,
+    host: mongoose.connection.host,
+    name: mongoose.connection.name,
+    models: Object.keys(mongoose.models)
+  };
+};
+
+module.exports = {
+  connectDB,
+  testConnection,
+  getConnectionStatus,
+  isConnected: () => isConnected
+};
