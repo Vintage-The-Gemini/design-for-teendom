@@ -1,52 +1,269 @@
 // File: backend/routes/admin/nominations.js
 
 const express = require('express');
-const Nomination = require('../../models/Nomination');
-const { protect, editorAccess, adminOnly } = require('../../middleware/auth');
-const path = require('path');
-const fs = require('fs').promises;
-
 const router = express.Router();
 
-// TEST ROUTE - NO AUTH (for debugging)
-router.get('/test', async (req, res) => {
+// Import models with error handling
+let Nomination;
+try {
+  Nomination = require('../../models/Nomination');
+  console.log('✅ Nomination model loaded in admin routes');
+} catch (error) {
+  console.error('❌ Failed to load Nomination model:', error);
+}
+
+// Import middleware
+const { protect, authorize } = require('../../middleware/auth');
+
+// Apply authentication middleware to all routes
+router.use(protect);
+
+// Admin access middleware
+const adminAccess = authorize('admin', 'editor');
+
+// PATCH /api/admin/nominations/:id/status - Update nomination status (FIXED)
+router.patch('/:id/status', adminAccess, async (req, res) => {
   try {
-    console.log('🧪 Test route accessed');
-    const nominations = await Nomination.find().limit(5).lean();
+    console.log('🔄 === NOMINATION STATUS UPDATE START ===');
+    console.log('📋 Nomination ID:', req.params.id);
+    console.log('📋 Request body:', req.body);
+    console.log('👤 User authenticated:', !!req.user);
+    console.log('👤 User details:', req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'None');
+
+    const { status, notes } = req.body;
+    const validStatuses = ['pending', 'approved', 'rejected', 'needs-info'];
     
-    res.json({
-      status: 'success',
-      message: '✅ Test route working - nominations found',
-      count: nominations.length,
-      sampleData: nominations.length > 0 ? {
-        submissionId: nominations[0].submissionId,
-        hasPhoto: !!nominations[0].nominee?.photo,
-        photoUrl: nominations[0].nominee?.photo,
-        photoType: typeof nominations[0].nominee?.photo,
-        createdAt: nominations[0].createdAt
-      } : null,
-      allNominations: nominations.map(n => ({
-        id: n.submissionId,
-        photo: n.nominee?.photo,
-        photoType: typeof n.nominee?.photo
-      }))
+    // Validate input
+    if (!status) {
+      console.log('❌ No status provided in request');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Status is required'
+      });
+    }
+
+    if (!validStatuses.includes(status)) {
+      console.log('❌ Invalid status provided:', status);
+      return res.status(400).json({
+        status: 'error',
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Check database availability
+    if (!Nomination) {
+      console.log('❌ Nomination model not available');
+      return res.status(503).json({
+        status: 'error',
+        message: 'Database service unavailable - Nomination model not loaded'
+      });
+    }
+
+    // Validate MongoDB ObjectId format
+    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('❌ Invalid ObjectId format:', req.params.id);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid nomination ID format'
+      });
+    }
+
+    console.log('🔍 Searching for nomination in database...');
+
+    // Find nomination
+    const nomination = await Nomination.findById(req.params.id);
+    
+    if (!nomination) {
+      console.log('❌ Nomination not found in database');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Nomination not found'
+      });
+    }
+
+    console.log('✅ Found nomination:', {
+      submissionId: nomination.submissionId,
+      currentStatus: nomination.status,
+      currentAdminStatus: nomination.adminReview?.status,
+      nominee: `${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`
     });
+
+    // Safely get reviewer info
+    const reviewerId = req.user?._id?.toString() || 'system';
+    const reviewerName = req.user?.name || req.user?.email || 'System Admin';
+
+    console.log('👤 Reviewer info:', { reviewerId, reviewerName });
+
+    // Initialize adminReview if it doesn't exist
+    if (!nomination.adminReview) {
+      nomination.adminReview = {};
+      console.log('🔧 Initialized empty adminReview object');
+    }
+
+    console.log('🔧 Updating adminReview...');
+
+    // Update admin review
+    nomination.adminReview = {
+      ...nomination.adminReview,
+      reviewed: true,
+      reviewer: reviewerId,
+      reviewerName: reviewerName,
+      reviewDate: new Date(),
+      status: status,
+      notes: notes || '',
+      updatedAt: new Date()
+    };
+
+    console.log('🔧 Updated adminReview:', nomination.adminReview);
+
+    // Update main nomination status
+    console.log('🔧 Updating main nomination status...');
+    
+    const oldStatus = nomination.status;
+    const oldPhase = nomination.phase;
+
+    switch (status) {
+      case 'approved':
+        nomination.status = 'approved';
+        nomination.phase = 'judging';
+        break;
+      case 'rejected':
+        nomination.status = 'rejected';
+        nomination.phase = 'rejected';
+        break;
+      case 'needs-info':
+        nomination.status = 'submitted';
+        nomination.phase = 'nomination';
+        break;
+      case 'pending':
+      default:
+        nomination.status = 'submitted';
+        nomination.phase = 'nomination';
+    }
+
+    console.log('🔧 Status changes:', {
+      oldStatus,
+      newStatus: nomination.status,
+      oldPhase,
+      newPhase: nomination.phase
+    });
+
+    // Update timestamp
+    nomination.updatedAt = new Date();
+
+    console.log('💾 Attempting to save nomination...');
+
+    // Save with comprehensive error handling
+    try {
+      const savedNomination = await nomination.save();
+      console.log('✅ Nomination saved successfully');
+      console.log('📊 Final nomination state:', {
+        id: savedNomination._id,
+        submissionId: savedNomination.submissionId,
+        status: savedNomination.status,
+        phase: savedNomination.phase,
+        adminReviewStatus: savedNomination.adminReview.status
+      });
+    } catch (saveError) {
+      console.error('❌ SAVE ERROR:', saveError);
+      console.error('❌ Save error name:', saveError.name);
+      console.error('❌ Save error message:', saveError.message);
+      
+      if (saveError.errors) {
+        console.error('❌ Validation errors:', Object.keys(saveError.errors));
+        Object.entries(saveError.errors).forEach(([field, error]) => {
+          console.error(`❌   ${field}:`, error.message);
+        });
+      }
+      
+      return res.status(500).json({
+        status: 'error',
+        message: 'Database save failed',
+        details: saveError.message,
+        validationErrors: saveError.errors ? Object.keys(saveError.errors) : null
+      });
+    }
+
+    console.log(`✅ Nomination ${nomination.submissionId} status updated to: ${status}`);
+
+    // Return success response
+    const responseData = {
+      status: 'success',
+      message: `Nomination ${status} successfully`,
+      data: {
+        nomination: {
+          _id: nomination._id,
+          submissionId: nomination.submissionId,
+          status: nomination.status,
+          phase: nomination.phase,
+          adminReview: nomination.adminReview,
+          updatedAt: nomination.updatedAt
+        }
+      }
+    };
+
+    console.log('✅ Sending success response:', responseData);
+    console.log('🔄 === NOMINATION STATUS UPDATE END ===');
+
+    res.json(responseData);
+
   } catch (error) {
-    console.error('❌ Test route error:', error);
+    console.error('💥 === CRITICAL ERROR IN STATUS UPDATE ===');
+    console.error('❌ Error type:', error.constructor.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Handle specific MongoDB errors
+    if (error.name === 'CastError') {
+      console.log('❌ MongoDB CastError - Invalid ID format');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid nomination ID format',
+        details: error.message
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      console.log('❌ MongoDB ValidationError');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Validation error',
+        details: Object.keys(error.errors || {}).join(', ')
+      });
+    }
+
+    if (error.name === 'MongoNetworkError' || error.name === 'MongooseError') {
+      console.log('❌ Database connection error');
+      return res.status(503).json({
+        status: 'error',
+        message: 'Database connection error',
+        details: 'Unable to connect to database'
+      });
+    }
+    
+    // Generic server error
+    console.log('❌ Generic server error');
     res.status(500).json({
       status: 'error',
-      message: error.message
+      message: 'Failed to update nomination status',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      errorType: error.constructor.name
     });
   }
 });
 
-// Apply authentication to all routes below this point
-router.use(protect);
-router.use(editorAccess);
-
-// GET /api/admin/nominations - Get all nominations with filtering and pagination
-router.get('/', async (req, res) => {
+// GET /api/admin/nominations - Get all nominations
+router.get('/', adminAccess, async (req, res) => {
   try {
+    console.log('📊 Admin fetching nominations');
+    
+    if (!Nomination) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Database service unavailable'
+      });
+    }
+
     const {
       page = 1,
       limit = 20,
@@ -54,74 +271,52 @@ router.get('/', async (req, res) => {
       category,
       adminStatus,
       search,
-      sortBy = 'createdAt',
+      sortBy = 'submittedAt',
       sortOrder = 'desc'
     } = req.query;
 
-    console.log('📊 Admin nominations query:', req.query);
-
-    // Build filter object
+    // Build filter
     const filter = {};
     
     if (status && status !== 'all') filter.status = status;
     if (category && category !== 'all') filter.awardCategory = category;
     if (adminStatus && adminStatus !== 'all') filter['adminReview.status'] = adminStatus;
     
-    // Search functionality
-    if (search) {
+    // Search
+    if (search && search.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: 'i' };
       filter.$or = [
-        { 'nominee.firstName': { $regex: search, $options: 'i' } },
-        { 'nominee.lastName': { $regex: search, $options: 'i' } },
-        { 'nominee.email': { $regex: search, $options: 'i' } },
-        { 'nominator.firstName': { $regex: search, $options: 'i' } },
-        { 'nominator.lastName': { $regex: search, $options: 'i' } },
-        { 'nominator.email': { $regex: search, $options: 'i' } },
-        { submissionId: { $regex: search, $options: 'i' } }
+        { 'nominee.firstName': searchRegex },
+        { 'nominee.lastName': searchRegex },
+        { 'nominee.email': searchRegex },
+        { submissionId: searchRegex }
       ];
     }
 
-    // Sort options
+    // Sort
     const sortOptions = {};
     sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    const skip = (page - 1) * parseInt(limit);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     
     const [nominations, totalCount] = await Promise.all([
       Nomination.find(filter)
         .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit))
-        .populate('adminReview.reviewer', 'name email')
         .lean(),
       Nomination.countDocuments(filter)
     ]);
 
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
-
-    // Enhanced logging for image availability
-    nominations.forEach(nomination => {
-      const photoData = nomination.nominee?.photo;
-      console.log(`📋 Nomination ${nomination.submissionId} image sources:`, {
-        directPhoto: !!photoData,
-        photoType: typeof photoData,
-        photoValue: photoData ? (photoData.length > 100 ? `${photoData.substring(0, 50)}...` : photoData) : null,
-        isCloudinaryUrl: photoData && typeof photoData === 'string' && photoData.includes('cloudinary'),
-        cloudinary: !!nomination.cloudinary?.photo?.url,
-        adminUrl: !!nomination.adminAccessUrls?.nomineePhoto,
-        localFile: !!nomination.files?.photo?.filename,
-        fileUrl: !!nomination.files?.photo?.url
-      });
-    });
+    console.log(`✅ Found ${nominations.length} nominations`);
 
     res.json({
       status: 'success',
       results: nominations.length,
       pagination: {
         currentPage: parseInt(page),
-        totalPages,
+        totalPages: Math.ceil(totalCount / parseInt(limit)),
         totalCount,
-        hasNextPage: parseInt(page) < totalPages,
-        hasPrevPage: parseInt(page) > 1,
         limit: parseInt(limit)
       },
       data: {
@@ -137,9 +332,16 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/admin/nominations/stats - Get nomination statistics
-router.get('/stats', async (req, res) => {
+// GET /api/admin/nominations/stats
+router.get('/stats', adminAccess, async (req, res) => {
   try {
+    if (!Nomination) {
+      return res.json({
+        status: 'success',
+        data: { total: 0, pending: 0, approved: 0, rejected: 0, needsInfo: 0 }
+      });
+    }
+
     const stats = await Nomination.aggregate([
       {
         $group: {
@@ -150,38 +352,28 @@ router.get('/stats', async (req, res) => {
               $cond: [
                 { $or: [
                   { $eq: ['$adminReview.status', 'pending'] },
-                  { $eq: ['$adminReview.status', null] }
+                  { $eq: ['$adminReview.status', null] },
+                  { $not: { $ifNull: ['$adminReview.status', false] } }
                 ]}, 
-                1, 
-                0
+                1, 0
               ]
             }
           },
           approved: {
-            $sum: {
-              $cond: [{ $eq: ['$adminReview.status', 'approved'] }, 1, 0]
-            }
+            $sum: { $cond: [{ $eq: ['$adminReview.status', 'approved'] }, 1, 0] }
           },
           rejected: {
-            $sum: {
-              $cond: [{ $eq: ['$adminReview.status', 'rejected'] }, 1, 0]
-            }
+            $sum: { $cond: [{ $eq: ['$adminReview.status', 'rejected'] }, 1, 0] }
           },
           needsInfo: {
-            $sum: {
-              $cond: [{ $eq: ['$adminReview.status', 'needs-info'] }, 1, 0]
-            }
+            $sum: { $cond: [{ $eq: ['$adminReview.status', 'needs-info'] }, 1, 0] }
           }
         }
       }
     ]);
 
     const result = stats[0] || {
-      total: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      needsInfo: 0
+      total: 0, pending: 0, approved: 0, rejected: 0, needsInfo: 0
     };
 
     res.json({
@@ -189,72 +381,23 @@ router.get('/stats', async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('❌ Nominations stats error:', error);
+    console.error('❌ Stats error:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Failed to fetch nominations statistics'
+      message: 'Failed to fetch stats'
     });
   }
 });
 
-// GET /api/admin/nominations/:id - Get single nomination details
-router.get('/:id', async (req, res) => {
+// DELETE /api/admin/nominations/:id
+router.delete('/:id', authorize('admin'), async (req, res) => {
   try {
-    const nomination = await Nomination.findById(req.params.id)
-      .populate('adminReview.reviewer', 'name email')
-      .lean();
-    
-    if (!nomination) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Nomination not found'
-      });
-    }
+    console.log('🗑️ Deleting nomination:', req.params.id);
 
-    // Enhanced logging for single nomination image data
-    const photoData = nomination.nominee?.photo;
-    console.log(`🔍 Single nomination ${nomination.submissionId} image details:`, {
-      directPhoto: photoData,
-      photoType: typeof photoData,
-      isCloudinaryUrl: photoData && typeof photoData === 'string' && photoData.includes('cloudinary'),
-      cloudinary: nomination.cloudinary?.photo,
-      adminAccessUrls: nomination.adminAccessUrls,
-      files: nomination.files?.photo
-    });
-
-    res.json({
-      status: 'success',
-      data: {
-        nomination
-      }
-    });
-  } catch (error) {
-    console.error('❌ Admin get nomination error:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
+    if (!Nomination) {
+      return res.status(503).json({
         status: 'error',
-        message: 'Invalid nomination ID'
-      });
-    }
-    
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to fetch nomination details'
-    });
-  }
-});
-
-// PATCH /api/admin/nominations/:id/status - Update nomination review status
-router.patch('/:id/status', async (req, res) => {
-  try {
-    const { status, notes, sendNotification = true } = req.body;
-    const validStatuses = ['pending', 'approved', 'rejected', 'needs-info'];
-    
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+        message: 'Database unavailable'
       });
     }
 
@@ -267,155 +410,17 @@ router.patch('/:id/status', async (req, res) => {
       });
     }
 
-    // Update admin review
-    nomination.adminReview = {
-      reviewed: true,
-      reviewer: req.user._id,
-      reviewDate: new Date(),
-      status: status,
-      notes: notes || ''
-    };
+    await Nomination.findByIdAndDelete(req.params.id);
 
-    // Update main status based on admin decision
-    switch (status) {
-      case 'approved':
-        nomination.status = 'under-review';
-        nomination.phase = 'judging';
-        break;
-      case 'rejected':
-        nomination.status = 'rejected';
-        break;
-      case 'needs-info':
-        nomination.status = 'submitted';
-        break;
-      default:
-        nomination.status = 'submitted';
-    }
-
-    await nomination.save();
-
-    console.log(`✅ Nomination ${nomination.submissionId} status updated to: ${status}`);
-
-    if (sendNotification) {
-      console.log('📧 Email notification requested for:', nomination.nominator.email);
-    }
+    console.log(`✅ Nomination ${nomination.submissionId} deleted`);
 
     res.json({
       status: 'success',
-      message: `Nomination ${status} successfully`,
-      data: {
-        nomination: {
-          _id: nomination._id,
-          submissionId: nomination.submissionId,
-          status: nomination.status,
-          adminReview: nomination.adminReview
-        }
-      }
+      message: 'Nomination deleted successfully'
     });
 
   } catch (error) {
-    console.error('❌ Update nomination status error:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid nomination ID'
-      });
-    }
-    
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to update nomination status'
-    });
-  }
-});
-
-// DELETE /api/admin/nominations/:id - Delete nomination with file cleanup
-router.delete('/:id', adminOnly, async (req, res) => {
-  try {
-    const nominationId = req.params.id;
-    console.log('🗑️ Admin deleting nomination:', nominationId);
-
-    const nomination = await Nomination.findById(nominationId);
-    
-    if (!nomination) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Nomination not found'
-      });
-    }
-
-    console.log('📋 Found nomination to delete:', {
-      id: nomination.submissionId,
-      nominee: `${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`,
-      hasCloudinaryPhoto: !!nomination.cloudinary?.photo?.publicId,
-      hasLocalFiles: !!nomination.files?.photo?.filename
-    });
-
-    // Delete from Cloudinary if exists
-    if (nomination.cloudinary?.photo?.publicId) {
-      try {
-        const cloudinaryUtils = require('../../utils/cloudinaryUtils');
-        await cloudinaryUtils.deleteImage(nomination.cloudinary.photo.publicId);
-        console.log('☁️ ✅ Cloudinary image deleted');
-      } catch (cloudinaryError) {
-        console.warn('☁️ ⚠️ Cloudinary deletion failed:', cloudinaryError.message);
-      }
-    }
-
-    // Delete local files if they exist
-    const localFilesToDelete = [];
-    
-    if (nomination.files?.photo?.filename) {
-      localFilesToDelete.push(path.join(__dirname, '../../uploads/nominations', nomination.files.photo.filename));
-    }
-    
-    if (nomination.files?.supportingFiles) {
-      nomination.files.supportingFiles.forEach(file => {
-        if (file.filename) {
-          localFilesToDelete.push(path.join(__dirname, '../../uploads/nominations', file.filename));
-        }
-      });
-    }
-
-    for (const filePath of localFilesToDelete) {
-      try {
-        await fs.unlink(filePath);
-        console.log('📁 ✅ Local file deleted:', path.basename(filePath));
-      } catch (fileError) {
-        console.warn('📁 ⚠️ Local file deletion failed:', fileError.message);
-      }
-    }
-
-    await Nomination.findByIdAndDelete(nominationId);
-    console.log('💾 ✅ Nomination deleted from database');
-
-    res.json({
-      status: 'success',
-      message: 'Nomination and associated files deleted successfully',
-      data: {
-        deletedNomination: {
-          _id: nomination._id,
-          submissionId: nomination.submissionId,
-          nominee: `${nomination.nominee?.firstName} ${nomination.nominee?.lastName}`
-        },
-        filesDeleted: {
-          cloudinary: !!nomination.cloudinary?.photo?.publicId,
-          localFiles: localFilesToDelete.length
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Delete nomination error:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid nomination ID'
-      });
-    }
-    
+    console.error('❌ Delete error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to delete nomination'
