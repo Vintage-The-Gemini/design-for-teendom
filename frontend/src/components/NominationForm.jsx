@@ -85,8 +85,8 @@ const NavigationButtons = ({ currentStep, totalSteps, onPrev, onNext, onSubmit, 
         
       case 4: // Nomination Statement
         if (!formData.shortBio || formData.shortBio.length < 50) newErrors.shortBio = 'Bio must be at least 50 characters';
-        if (!formData.impact || formData.impact.length < 300) newErrors.impact = 'Impact statement must be at least 300 characters';
-        if (!formData.whyDeserveAward || formData.whyDeserveAward.length < 200) newErrors.whyDeserveAward = 'Must be at least 200 characters';
+        if (!formData.impact || formData.impact.length < 100) newErrors.impact = 'Impact statement must be at least 100 characters';
+        if (!formData.whyDeserveAward || formData.whyDeserveAward.length < 100) newErrors.whyDeserveAward = 'Must be at least 100 characters';
         break;
         
       case 5: // Supporting Documents
@@ -487,7 +487,7 @@ const NominationForm = () => {
     
     // Statement validation
     if (!data.shortBio || data.shortBio.length < 50) errors.shortBio = 'Bio must be at least 50 characters';
-    if (!data.impact || data.impact.length < 300) errors.impact = 'Impact statement must be at least 300 characters';
+    if (!data.impact || data.impact.length < 100) errors.impact = 'Impact statement must be at least 1000 characters';
     if (!data.whyDeserveAward || data.whyDeserveAward.length < 200) errors.whyDeserveAward = 'Must be at least 200 characters';
     
     // Referee validation
