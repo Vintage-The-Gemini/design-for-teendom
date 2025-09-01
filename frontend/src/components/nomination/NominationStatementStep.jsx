@@ -92,10 +92,10 @@ const NominationStatementStep = ({ formData, setFormData, errors, setErrors }) =
         </div>
       </div>
 
-      {/* Impact Statement - CRITICAL: 300+ words required by database */}
+      {/* Impact Statement - CRITICAL: 100+ words required by database */}
       <div className="space-y-2">
         <label className="block text-sm font-bold mb-2">
-          💥 Impact Statement * (Minimum 300 words)
+          💥 Impact Statement * (Minimum 100 words)
         </label>
         <textarea
           value={formData.impact || ''}
@@ -105,15 +105,15 @@ const NominationStatementStep = ({ formData, setFormData, errors, setErrors }) =
           required
         />
         <div className="flex justify-between text-sm">
-          <span className={getWordCountStatus(impactWordCount, 300, null).color}>
-            {impactWordCount} words - {getWordCountStatus(impactWordCount, 300, null).text}
+          <span className={getWordCountStatus(impactWordCount, 100, null).color}>
+            {impactWordCount} words - {getWordCountStatus(impactWordCount, 100, null).text}
           </span>
           <span className="text-gray-400">Be detailed and specific</span>
         </div>
-        {impactWordCount < 300 && (
+        {impactWordCount < 100 && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3">
             <p className="text-red-700 text-sm">
-              ⚠️ This field requires at least 300 words. Currently: {impactWordCount} words. 
+              ⚠️ This field requires at least 100 words. Currently: {impactWordCount} words. 
               Please provide more detailed information about the nominee's impact.
             </p>
           </div>
@@ -233,7 +233,7 @@ const NominationStatementStep = ({ formData, setFormData, errors, setErrors }) =
         </div>
       </div>
 
-      {/* Writing Guidelines */}
+      {/* Writing Guidelines */}pn
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h5 className="font-semibold text-blue-800 mb-2">✍️ Writing Guidelines:</h5>
         <ul className="text-sm text-blue-700 space-y-1">
@@ -258,9 +258,9 @@ const NominationStatementStep = ({ formData, setFormData, errors, setErrors }) =
             <span>{formData.achievements ? '✅' : '❌'}</span>
             <span>Achievements</span>
           </div>
-          <div className={`flex items-center space-x-2 ${impactWordCount >= 300 ? 'text-green-600' : 'text-red-500'}`}>
-            <span>{impactWordCount >= 300 ? '✅' : '❌'}</span>
-            <span>Impact (300+ words)</span>
+          <div className={`flex items-center space-x-2 ${impactWordCount >= 100 ? 'text-green-600' : 'text-red-500'}`}>
+            <span>{impactWordCount >= 100 ? '✅' : '❌'}</span>
+            <span>Impact (100+ words)</span>
           </div>
           <div className={`flex items-center space-x-2 ${formData.whyDeserveAward ? 'text-green-600' : 'text-red-500'}`}>
             <span>{formData.whyDeserveAward ? '✅' : '❌'}</span>
