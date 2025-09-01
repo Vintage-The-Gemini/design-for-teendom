@@ -1,33 +1,13 @@
 // File: frontend/src/components/admin/AdminPanel.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminAuthProvider, useAdminAuth } from '../../contexts/AdminAuthContext';
 import AdminLogin from './AdminLogin';
 import AdminLayout from './AdminLayout';
 import AdminDashboard from './AdminDashboard';
 import NominationsManager from './nominations/NominationsManager';
+import ArticlesManager from './ArticlesManager'; // IMPORT THE REAL ARTICLES MANAGER
 
 // Placeholder components for other admin sections
-const ArticlesManager = () => (
-  <div className="bg-white rounded-xl shadow-lg p-8">
-    <h2 className="text-2xl font-black mb-4">Articles Manager</h2>
-    <p className="text-gray-600">Article management interface coming soon...</p>
-    <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h3 className="font-bold text-blue-900">Create Article</h3>
-        <p className="text-blue-700 text-sm">Rich text editor with image upload</p>
-      </div>
-      <div className="bg-green-50 p-4 rounded-lg">
-        <h3 className="font-bold text-green-900">Manage Existing</h3>
-        <p className="text-green-700 text-sm">Edit, delete, toggle featured status</p>
-      </div>
-      <div className="bg-purple-50 p-4 rounded-lg">
-        <h3 className="font-bold text-purple-900">Analytics</h3>
-        <p className="text-purple-700 text-sm">View performance metrics</p>
-      </div>
-    </div>
-  </div>
-);
-
 const CategoriesManager = () => (
   <div className="bg-white rounded-xl shadow-lg p-8">
     <h2 className="text-2xl font-black mb-4">Categories Manager</h2>
@@ -65,26 +45,55 @@ const SettingsManager = () => (
 // Main Admin Panel Content (wrapped by auth provider)
 const AdminPanelContent = () => {
   const { user, loading, isAuthenticated } = useAdminAuth();
-  const [activeSection, setActiveSection] = useState('dashboard');
+  
+  // FIXED: Use URL pathname to persist active section across refreshes
+  const [activeSection, setActiveSection] = useState(() => {
+    const path = window.location.pathname;
+    if (path.includes('/nominations')) return 'nominations';
+    if (path.includes('/articles')) return 'articles';
+    if (path.includes('/categories')) return 'categories';
+    if (path.includes('/settings')) return 'settings';
+    
+    // Also check localStorage as fallback
+    const saved = localStorage.getItem('adminActiveSection');
+    return saved || 'dashboard';
+  });
 
-  // Loading state
+  // Update URL when section changes
+  useEffect(() => {
+    const newPath = activeSection === 'dashboard' ? 
+      '/admin' : `/admin/${activeSection}`;
+    
+    // Update URL without page reload
+    window.history.pushState(null, '', newPath);
+    
+    // Save to localStorage
+    localStorage.setItem('adminActiveSection', activeSection);
+  }, [activeSection]);
+
+  const handleSectionChange = (section) => {
+    console.log('🔄 Switching to section:', section);
+    setActiveSection(section);
+  };
+
+  // Show loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading admin panel...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Checking authentication...</p>
         </div>
       </div>
     );
   }
 
   // Not authenticated - show login
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated) {
     return <AdminLogin />;
   }
 
-  // Render section based on active selection
+  // Helper function to render active section
   const renderActiveSection = () => {
     switch (activeSection) {
       case 'dashboard':
@@ -92,12 +101,13 @@ const AdminPanelContent = () => {
       case 'nominations':
         return <NominationsManager />;
       case 'articles':
-        return <ArticlesManager />;
+        return <ArticlesManager />; // NOW USES THE REAL COMPONENT
       case 'categories':
         return <CategoriesManager />;
       case 'settings':
         return <SettingsManager />;
       default:
+        console.warn('⚠️ Unknown section:', activeSection, '- defaulting to dashboard');
         return <AdminDashboard />;
     }
   };
@@ -107,9 +117,21 @@ const AdminPanelContent = () => {
     <AdminLayout 
       user={user}
       activeSection={activeSection}
-      onSectionChange={setActiveSection}
+      onSectionChange={handleSectionChange}
     >
-      {renderActiveSection()}
+      <div className="space-y-6">
+        {/* Debug info in development */}
+        {import.meta.env.DEV && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-blue-700">
+              <strong>Debug:</strong> Active Section = {activeSection} | 
+              Saved = {localStorage.getItem('adminActiveSection')}
+            </p>
+          </div>
+        )}
+        
+        {renderActiveSection()}
+      </div>
     </AdminLayout>
   );
 };
