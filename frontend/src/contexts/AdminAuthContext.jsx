@@ -14,10 +14,10 @@ export const useAdminAuth = () => {
 
 export const AdminAuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check authentication status on mount
   useEffect(() => {
     checkAuth();
   }, []);
@@ -26,27 +26,38 @@ export const AdminAuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      
-      if (!adminApi.isAuthenticated()) {
-        setUser(null);
+
+      const storedToken = localStorage.getItem('adminToken');
+      if (!storedToken) {
         setLoading(false);
         return;
       }
 
-      // Verify token with backend
-      const response = await adminApi.verifyToken();
-      if (response.status === 'success' && response.user) {
-        setUser(response.user);
-        console.log('✅ Admin authenticated:', response.user.email);
-      } else {
-        setUser(null);
+      setToken(storedToken);
+
+      // Test if token is valid by making a request
+      try {
+        const userData = await adminApi.getCurrentUser();
+        if (userData?.data?.user || userData?.user) {
+          const userInfo = userData.data?.user || userData.user;
+          setUser(userInfo);
+          console.log('✅ Admin authenticated:', userInfo);
+        } else {
+          throw new Error('Invalid user data');
+        }
+      } catch (authError) {
+        console.warn('❌ Token invalid, removing:', authError);
         adminApi.removeToken();
+        setToken(null);
+        setUser(null);
       }
+
     } catch (error) {
-      console.error('Auth check failed:', error);
-      setUser(null);
-      adminApi.removeToken();
+      console.error('❌ Auth check failed:', error);
       setError(error.message);
+      adminApi.removeToken();
+      setToken(null);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -56,22 +67,20 @@ export const AdminAuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('🔐 Attempting admin login...');
-      
+
       const response = await adminApi.login(credentials);
-      
-      if (response.status === 'success' && response.user) {
+
+      if (response?.token && response?.user) {
+        setToken(response.token);
         setUser(response.user);
-        console.log('✅ Admin login successful:', response.user.email);
         return { success: true, user: response.user };
       } else {
-        throw new Error(response.message || 'Login failed');
+        throw new Error('Invalid login response');
       }
+
     } catch (error) {
-      console.error('❌ Admin login failed:', error);
+      console.error('❌ Login error:', error);
       setError(error.message);
-      setUser(null);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -81,25 +90,27 @@ export const AdminAuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await adminApi.logout();
+      setToken(null);
       setUser(null);
       setError(null);
-      console.log('✅ Admin logged out');
+      return { success: true };
     } catch (error) {
-      console.error('Logout error:', error);
-      // Force logout even if API call fails
-      setUser(null);
-      adminApi.removeToken();
+      console.error('❌ Logout error:', error);
+      return { success: false, error: error.message };
     }
   };
 
   const value = {
     user,
+    token,
     loading,
     error,
-    isAuthenticated: !!user,
+    isAuthenticated: !!(token && user),
     login,
     logout,
-    checkAuth
+    checkAuth,
+    isAdmin: user?.role === 'admin',
+    isEditor: user?.role === 'editor' || user?.role === 'admin',
   };
 
   return (
