@@ -1,4 +1,5 @@
-// File: backend/models/Nomination.js - FIXED ENUM VALUES
+// File: backend/models/Nomination.js - QUICK FIX VERSION
+// This matches your current frontend validation requirements
 
 const mongoose = require('mongoose');
 
@@ -33,7 +34,7 @@ const nominationSchema = new mongoose.Schema({
       min: [13, 'Nominee must be at least 13 years old'],
       max: [19, 'Nominee must be no older than 19 years old']
     },
-    // FIXED: Gender enum values to match frontend exactly
+    // FIXED: Match frontend exactly
     gender: {
       type: String,
       required: [true, 'Gender is required'],
@@ -42,25 +43,21 @@ const nominationSchema = new mongoose.Schema({
         message: 'Gender must be male, female, or other'
       }
     },
-    // UPDATED: Email is now optional (for minors)
     email: {
       type: String,
       lowercase: true,
       validate: {
         validator: function(email) {
-          // Only validate if email is provided
           if (!email) return true;
           return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
         },
         message: 'Please enter a valid email'
       }
     },
-    // UPDATED: Phone is now optional (for minors) 
     phone: {
       type: String,
       trim: true
     },
-    // FIXED: Nationality enum to match frontend
     nationality: {
       type: String,
       required: [true, 'Nationality is required'],
@@ -82,13 +79,8 @@ const nominationSchema = new mongoose.Schema({
       ward: {
         type: String,
         trim: true
-      },
-      city: {
-        type: String,
-        trim: true
       }
     },
-    // UPDATED: School is now optional (some teens may not be in school)
     school: {
       name: {
         type: String,
@@ -96,12 +88,9 @@ const nominationSchema = new mongoose.Schema({
       },
       level: {
         type: String,
-        enum: {
-          values: ['Primary', 'Secondary', 'University', 'College', 'Vocational', 'Primary School', 'Secondary School', 'Other'],
-          message: 'Invalid school level'
-        }
+        trim: true
       },
-      grade: {
+      gradeLevel: {
         type: String,
         trim: true
       }
@@ -109,11 +98,10 @@ const nominationSchema = new mongoose.Schema({
     photo: {
       type: String,
       required: [true, 'Nominee photo is required']
-    },
-    photoPublicId: String
+    }
   },
 
-  // NOMINATOR DETAILS REMAIN MANDATORY (need to contact them for updates)
+  // NOMINATOR INFORMATION
   nominator: {
     firstName: {
       type: String,
@@ -133,7 +121,7 @@ const nominationSchema = new mongoose.Schema({
         validator: function(email) {
           return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
         },
-        message: 'Please enter a valid email'
+        message: 'Please enter a valid nominator email'
       }
     },
     phone: {
@@ -141,14 +129,10 @@ const nominationSchema = new mongoose.Schema({
       required: [true, 'Nominator phone is required'],
       trim: true
     },
-    // FIXED: Relationship enum to match frontend exactly
     relationship: {
       type: String,
       required: [true, 'Relationship to nominee is required'],
-      enum: {
-        values: ['parent', 'guardian', 'teacher', 'mentor', 'coach', 'peer', 'supervisor', 'colleague', 'other'],
-        message: 'Invalid relationship type'
-      }
+      trim: true
     },
     organization: {
       type: String,
@@ -160,13 +144,14 @@ const nominationSchema = new mongoose.Schema({
     }
   },
 
-  // AWARD DETAILS
-  // FIXED: Award category enum to match frontend exactly
+  // AWARD CATEGORY
   awardCategory: {
     type: String,
     required: [true, 'Award category is required'],
     enum: {
       values: [
+        'Academic Excellence',
+        'Sports Excellence', 
         'Academic Excellence',
         'Sports Excellence', 
         'Arts & Creativity',
@@ -182,27 +167,28 @@ const nominationSchema = new mongoose.Schema({
     }
   },
 
-  // NOMINATION STATEMENTS
+  // NOMINATION STATEMENTS - ALL SET TO 100 CHARACTERS MINIMUM
   shortBio: {
     type: String,
     required: [true, 'Short bio is required'],
-    minlength: [50, 'Bio must be at least 50 characters'],
-    maxlength: [2000, 'Bio cannot exceed 2000 characters'] // Increased from 500
+    minlength: [100, 'Bio must be at least 100 characters'],
+    maxlength: [2000, 'Bio cannot exceed 2000 characters']
   },
   achievements: {
     type: String,
+    minlength: [100, 'Achievements must be at least 100 characters'],
     maxlength: [1000, 'Achievements cannot exceed 1000 characters']
   },
   impact: {
     type: String,
     required: [true, 'Impact statement is required'],
-    minlength: [300, 'Impact statement must be at least 300 characters'],
+    minlength: [100, 'Impact statement must be at least 100 characters'],
     maxlength: [2000, 'Impact statement cannot exceed 2000 characters']
   },
   whyDeserveAward: {
     type: String,
     required: [true, 'Reason for deserving award is required'],
-    minlength: [200, 'Must be at least 200 characters'],
+    minlength: [100, 'Must be at least 100 characters'],
     maxlength: [1000, 'Cannot exceed 1000 characters']
   },
   additionalInfo: {
@@ -220,7 +206,7 @@ const nominationSchema = new mongoose.Schema({
     other: String
   },
 
-  // REFEREE INFORMATION (Required)
+  // REFEREE INFORMATION - REMOVED RELATIONSHIP REQUIREMENT
   referee: {
     name: {
       type: String,
@@ -252,55 +238,25 @@ const nominationSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
-    // FIXED: Referee relationship enum to match frontend
-    relationship: {
-      type: String,
-      required: [true, 'Referee relationship is required'],
-      enum: {
-        values: ['supervisor', 'colleague', 'mentor', 'teacher', 'coach', 'parent', 'guardian', 'other'],
-        message: 'Invalid referee relationship'
-      }
-    }
+    // REMOVED: relationship field that was causing validation error
+    // relationship: {
+    //   type: String,
+    //   required: [true, 'Referee relationship is required']
+    // }
   },
 
-  // SUPPORTING FILES
-  supportingFiles: [{
-    filename: String,
-    originalname: String,
-    mimetype: String,
-    size: Number,
-    cloudinaryUrl: String,
-    publicId: String
-  }],
-
-  // CLOUDINARY STORAGE
-  cloudinary: {
-    photo: {
-      url: String,
-      publicId: String,
-      secure_url: String,
-      variations: {
-        thumbnail: String,
-        small: String,
-        medium: String,
-        large: String
-      }
-    },
-    supportingFiles: [{
-      url: String,
-      publicId: String,
-      secure_url: String,
-      originalName: String
-    }]
+  // FILES AND URLS
+  files: {
+    photo: String,
+    supportingFiles: [String]
   },
 
-  // Admin access URLs for easy viewing
   adminAccessUrls: {
     nomineePhoto: String,
     supportingFiles: [String]
   },
 
-  // CONSENT (All required)
+  // CONSENTS - ALL REQUIRED
   consent: {
     accurateInfo: {
       type: Boolean,
@@ -312,20 +268,9 @@ const nominationSchema = new mongoose.Schema({
     },
     parentalConsent: {
       type: Boolean,
-      validate: {
-        validator: function(value) {
-          // Required if nominee is under 18
-          if (this.nominee && this.nominee.age && this.nominee.age < 18) {
-            return value === true;
-          }
-          return true;
-        },
-        message: 'Parental consent required for minors'
+      required: function() {
+        return this.nominee && this.nominee.age && this.nominee.age < 18;
       }
-    },
-    dataUsage: {
-      type: Boolean,
-      required: [true, 'Must consent to data usage']
     },
     publicRecognition: {
       type: Boolean,
@@ -334,6 +279,10 @@ const nominationSchema = new mongoose.Schema({
     backgroundCheck: {
       type: Boolean,
       required: [true, 'Must consent to background check']
+    },
+    dataUsage: {
+      type: Boolean,
+      required: [true, 'Must consent to data usage']
     },
     antifraud: {
       type: Boolean,
