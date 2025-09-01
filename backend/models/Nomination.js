@@ -1,4 +1,4 @@
-// File: backend/models/Nomination.js
+// File: backend/models/Nomination.js - FIXED ENUM VALUES
 
 const mongoose = require('mongoose');
 
@@ -33,10 +33,14 @@ const nominationSchema = new mongoose.Schema({
       min: [13, 'Nominee must be at least 13 years old'],
       max: [19, 'Nominee must be no older than 19 years old']
     },
+    // FIXED: Gender enum values to match frontend exactly
     gender: {
       type: String,
       required: [true, 'Gender is required'],
-      enum: ['male', 'female', 'other']
+      enum: {
+        values: ['male', 'female', 'other'],
+        message: 'Gender must be male, female, or other'
+      }
     },
     // UPDATED: Email is now optional (for minors)
     email: {
@@ -56,10 +60,14 @@ const nominationSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    // FIXED: Nationality enum to match frontend
     nationality: {
       type: String,
       required: [true, 'Nationality is required'],
-      enum: ['kenyan-citizen', 'kenyan-resident']
+      enum: {
+        values: ['kenyan-citizen', 'kenyan-resident'],
+        message: 'Nationality must be kenyan-citizen or kenyan-resident'
+      }
     },
     location: {
       county: {
@@ -67,16 +75,36 @@ const nominationSchema = new mongoose.Schema({
         required: [true, 'County is required'],
         trim: true
       },
-      city: String
+      subcounty: {
+        type: String,
+        trim: true
+      },
+      ward: {
+        type: String,
+        trim: true
+      },
+      city: {
+        type: String,
+        trim: true
+      }
     },
     // UPDATED: School is now optional (some teens may not be in school)
     school: {
-      name: String,
+      name: {
+        type: String,
+        trim: true
+      },
       level: {
         type: String,
-        enum: ['Primary', 'Secondary', 'University', 'College', 'Vocational', 'Other']
+        enum: {
+          values: ['Primary', 'Secondary', 'University', 'College', 'Vocational', 'Primary School', 'Secondary School', 'Other'],
+          message: 'Invalid school level'
+        }
       },
-      grade: String
+      grade: {
+        type: String,
+        trim: true
+      }
     },
     photo: {
       type: String,
@@ -100,197 +128,152 @@ const nominationSchema = new mongoose.Schema({
     email: {
       type: String,
       required: [true, 'Nominator email is required'],
-      lowercase: true
+      lowercase: true,
+      validate: {
+        validator: function(email) {
+          return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
+        },
+        message: 'Please enter a valid email'
+      }
     },
     phone: {
       type: String,
       required: [true, 'Nominator phone is required'],
       trim: true
     },
+    // FIXED: Relationship enum to match frontend exactly
     relationship: {
       type: String,
       required: [true, 'Relationship to nominee is required'],
-      enum: ['parent', 'guardian', 'teacher', 'mentor', 'friend', 'self', 'other']
+      enum: {
+        values: ['parent', 'guardian', 'teacher', 'mentor', 'coach', 'peer', 'supervisor', 'colleague', 'other'],
+        message: 'Invalid relationship type'
+      }
     },
-    organization: String,
+    organization: {
+      type: String,
+      trim: true
+    },
     isSelfNomination: {
       type: Boolean,
       default: false
     }
   },
 
+  // AWARD DETAILS
+  // FIXED: Award category enum to match frontend exactly
   awardCategory: {
     type: String,
     required: [true, 'Award category is required'],
-    enum: [
-      'Academic Excellence',
-      'Leadership Excellence',
-      'Sports Excellence',
-      'Arts & Creativity',
-      'Innovation & Technology',
-      'Community Service',
-      'Environmental Champion',
-      'Entrepreneurship',
-      'Advocate for Change',
-      'Cultural Ambassador',
-      'Teen Innovator',
-      'Teenpreneur',
-      'Creative Arts',
-      'Sports & Wellness',
-      'Digital Impact',
-      'Teen of the Year'
-    ]
-  },
-
-  shortBio: {
-    type: String,
-    required: [true, 'Short bio is required'],
-    maxlength: [1500, 'Bio cannot exceed 1500 characters']
-  },
-
-  achievements: {
-    type: String,
-    required: [true, 'Achievements description is required']
-  },
-
-  // UPDATED: Impact statement minimum word requirement reduced to 100
-  impact: {
-    type: String,
-    required: [true, 'Impact statement is required'],
-    validate: {
-      validator: function(text) {
-        const wordCount = text ? text.split(' ').filter(word => word.length > 0).length : 0;
-        return wordCount >= 100;
-      },
-      message: 'Impact statement must be at least 100 words'
+    enum: {
+      values: [
+        'Academic Excellence',
+        'Sports Excellence', 
+        'Arts & Creativity',
+        'Leadership Excellence',
+        'Community Service',
+        'Innovation & Technology',
+        'Environmental Champion',
+        'Entrepreneurship',
+        'Cultural Ambassador',
+        'Advocate for Change'
+      ],
+      message: 'Invalid award category'
     }
   },
 
+  // NOMINATION STATEMENTS
+  shortBio: {
+    type: String,
+    required: [true, 'Short bio is required'],
+    minlength: [50, 'Bio must be at least 50 characters'],
+    maxlength: [2000, 'Bio cannot exceed 2000 characters'] // Increased from 500
+  },
+  achievements: {
+    type: String,
+    maxlength: [1000, 'Achievements cannot exceed 1000 characters']
+  },
+  impact: {
+    type: String,
+    required: [true, 'Impact statement is required'],
+    minlength: [300, 'Impact statement must be at least 300 characters'],
+    maxlength: [2000, 'Impact statement cannot exceed 2000 characters']
+  },
   whyDeserveAward: {
     type: String,
-    required: [true, 'Why deserve award explanation is required'],
-    minlength: [200, 'Must be at least 200 characters']
+    required: [true, 'Reason for deserving award is required'],
+    minlength: [200, 'Must be at least 200 characters'],
+    maxlength: [1000, 'Cannot exceed 1000 characters']
   },
-
   additionalInfo: {
     type: String,
-    maxlength: [1000, 'Additional info cannot exceed 1000 characters']
+    maxlength: [500, 'Additional info cannot exceed 500 characters']
   },
 
+  // SOCIAL MEDIA (Optional)
   socialMediaLinks: {
-    facebook: String,
-    twitter: String,
     instagram: String,
+    twitter: String,
     linkedin: String,
     youtube: String,
-    website: String,
+    tiktok: String,
     other: String
   },
 
-  supportingFiles: [{
-    originalName: String,
-    filename: String,
-    mimetype: String,
-    size: Number,
-    url: String,
-    cloudinaryUrl: String,
-    cloudinaryPublicId: String
-  }],
-
+  // REFEREE INFORMATION (Required)
   referee: {
     name: {
       type: String,
-      required: [true, 'Referee name is required']
-    },
-    position: {
-      type: String,
-      required: [true, 'Referee position is required']
+      required: [true, 'Referee name is required'],
+      trim: true
     },
     email: {
       type: String,
       required: [true, 'Referee email is required'],
-      lowercase: true
+      lowercase: true,
+      validate: {
+        validator: function(email) {
+          return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
+        },
+        message: 'Please enter a valid referee email'
+      }
     },
     phone: {
       type: String,
-      required: [true, 'Referee phone is required']
+      required: [true, 'Referee phone is required'],
+      trim: true
     },
-    canContact: {
-      type: Boolean,
-      default: true
-    }
-  },
-
-  consent: {
-    accurateInfo: {
-      type: Boolean,
-      required: [true, 'Accurate info consent is required'],
-      validate: {
-        validator: function(v) { return v === true; },
-        message: 'You must confirm that the information is accurate'
-      }
+    position: {
+      type: String,
+      required: [true, 'Referee position is required'],
+      trim: true
     },
-    nomineePermission: {
-      type: Boolean,
-      required: [true, 'Nominee permission consent is required'],
-      validate: {
-        validator: function(v) { return v === true; },
-        message: 'You must have permission from the nominee'
-      }
+    organization: {
+      type: String,
+      trim: true
     },
-    publicRecognition: {
-      type: Boolean,
-      required: [true, 'Public recognition consent is required'],
-      validate: {
-        validator: function(v) { return v === true; },
-        message: 'You must agree to public recognition terms'
-      }
-    },
-    backgroundCheck: {
-      type: Boolean,
-      required: [true, 'Background check consent is required'],
-      validate: {
-        validator: function(v) { return v === true; },
-        message: 'You must agree to background check terms'
-      }
-    },
-    dataUsage: {
-      type: Boolean,
-      required: [true, 'Data usage consent is required'],
-      validate: {
-        validator: function(v) { return v === true; },
-        message: 'You must agree to data usage terms'
-      }
-    },
-    antifraud: {
-      type: Boolean,
-      required: [true, 'Anti-fraud consent is required'],
-      validate: {
-        validator: function(v) { return v === true; },
-        message: 'You must agree to anti-fraud measures'
+    // FIXED: Referee relationship enum to match frontend
+    relationship: {
+      type: String,
+      required: [true, 'Referee relationship is required'],
+      enum: {
+        values: ['supervisor', 'colleague', 'mentor', 'teacher', 'coach', 'parent', 'guardian', 'other'],
+        message: 'Invalid referee relationship'
       }
     }
   },
 
-  // File storage information
-  files: {
-    photo: {
-      filename: String,
-      originalName: String,
-      mimetype: String,
-      size: Number,
-      url: String
-    },
-    supportingFiles: [{
-      filename: String,
-      originalName: String,
-      mimetype: String,
-      size: Number,
-      url: String
-    }]
-  },
+  // SUPPORTING FILES
+  supportingFiles: [{
+    filename: String,
+    originalname: String,
+    mimetype: String,
+    size: Number,
+    cloudinaryUrl: String,
+    publicId: String
+  }],
 
-  // Cloudinary storage information
+  // CLOUDINARY STORAGE
   cloudinary: {
     photo: {
       url: String,
@@ -317,7 +300,48 @@ const nominationSchema = new mongoose.Schema({
     supportingFiles: [String]
   },
 
-  // Status and workflow
+  // CONSENT (All required)
+  consent: {
+    accurateInfo: {
+      type: Boolean,
+      required: [true, 'Must confirm information accuracy']
+    },
+    nomineePermission: {
+      type: Boolean,
+      required: [true, 'Must have nominee permission']
+    },
+    parentalConsent: {
+      type: Boolean,
+      validate: {
+        validator: function(value) {
+          // Required if nominee is under 18
+          if (this.nominee && this.nominee.age && this.nominee.age < 18) {
+            return value === true;
+          }
+          return true;
+        },
+        message: 'Parental consent required for minors'
+      }
+    },
+    dataUsage: {
+      type: Boolean,
+      required: [true, 'Must consent to data usage']
+    },
+    publicRecognition: {
+      type: Boolean,
+      required: [true, 'Must consent to public recognition']
+    },
+    backgroundCheck: {
+      type: Boolean,
+      required: [true, 'Must consent to background check']
+    },
+    antifraud: {
+      type: Boolean,
+      required: [true, 'Must agree to anti-fraud terms']
+    }
+  },
+
+  // STATUS AND WORKFLOW
   status: {
     type: String,
     enum: ['submitted', 'under-review', 'approved', 'rejected'],
@@ -350,43 +374,6 @@ const nominationSchema = new mongoose.Schema({
     score: Number
   },
 
-  // Judging phase
-  judging: {
-    judges: [{
-      judge: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-      },
-      scores: {
-        impact: Number,
-        achievement: Number,
-        character: Number,
-        potential: Number,
-        total: Number
-      },
-      notes: String,
-      submittedAt: Date
-    }],
-    averageScore: Number,
-    totalJudges: Number,
-    completed: {
-      type: Boolean,
-      default: false
-    }
-  },
-
-  // Voting phase
-  voting: {
-    publicVotes: {
-      type: Number,
-      default: 0
-    },
-    publicVotingEnabled: {
-      type: Boolean,
-      default: false
-    }
-  },
-
   // Metadata
   submittedAt: {
     type: Date,
@@ -408,21 +395,6 @@ nominationSchema.index({ awardCategory: 1 });
 nominationSchema.index({ 'nominee.email': 1 });
 nominationSchema.index({ 'nominator.email': 1 });
 nominationSchema.index({ createdAt: -1 });
-
-// Virtual for nominee age calculation
-nominationSchema.virtual('nominee.calculatedAge').get(function() {
-  if (!this.nominee.dateOfBirth) return null;
-  const today = new Date();
-  const birthDate = new Date(this.nominee.dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  
-  return age;
-});
 
 // Pre-save middleware to calculate age
 nominationSchema.pre('save', function(next) {
@@ -460,8 +432,6 @@ nominationSchema.methods.isComplete = function() {
     this.referee.email &&
     this.consent.accurateInfo &&
     this.consent.nomineePermission &&
-    this.consent.publicRecognition &&
-    this.consent.backgroundCheck &&
     this.consent.dataUsage &&
     this.consent.antifraud
   );

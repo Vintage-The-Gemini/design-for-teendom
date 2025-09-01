@@ -1,81 +1,70 @@
-// File: frontend/src/components/nomination/NomineeDetailsStep.jsx
+// File: frontend/src/components/nomination/NomineeDetailsStep.jsx - FIXED
+// Email, phone, and school are now OPTIONAL for minors
+
 import React from 'react';
 
-const NomineeDetailsStep = ({ 
-  formData, 
-  setFormData, 
-  handleNestedChange, 
-  handleDeepNestedChange, 
-  errors, 
-  setErrors 
-}) => {
-  // CORRECTED: Exact enum values that match database schema
+const NomineeDetailsStep = ({ formData, handleNestedChange, errors }) => {
+  
+  // Calculate if nominee is a minor (under 18)
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birth = new Date(dateOfBirth);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const handleDateOfBirthChange = (value) => {
+    handleNestedChange('nominee', 'dateOfBirth', value);
+    if (value) {
+      const calculatedAge = calculateAge(value);
+      handleNestedChange('nominee', 'age', calculatedAge);
+    }
+  };
+
+  const isMinor = formData.nominee.age < 18;
+
   const genderOptions = [
     { value: 'male', label: 'Male' },
-    { value: 'female', label: 'Female' }
+    { value: 'female', label: 'Female' },
+    { value: 'other', label: 'Other' }
   ];
 
-  // CORRECTED: Exact enum values with hyphens
   const nationalityOptions = [
     { value: 'kenyan-citizen', label: 'Kenyan Citizen' },
     { value: 'kenyan-resident', label: 'Kenyan Resident' }
   ];
 
-  // CORRECTED: Exact school level enum values
   const schoolLevels = [
     'Primary School',
-    'Secondary School', 
-    'College/University',
+    'Secondary School',
+    'College/University', 
     'Technical/Vocational',
     'Other'
   ];
 
-  // All 47 Counties in Kenya
-  const counties = [
-    'Baringo', 'Bomet', 'Bungoma', 'Busia', 'Elgeyo-Marakwet', 'Embu', 'Garissa',
-    'Homa Bay', 'Isiolo', 'Kajiado', 'Kakamega', 'Kericho', 'Kiambu', 'Kilifi',
-    'Kirinyaga', 'Kisii', 'Kisumu', 'Kitui', 'Kwale', 'Laikipia', 'Lamu', 'Machakos',
-    'Makueni', 'Mandera', 'Marsabit', 'Meru', 'Migori', 'Mombasa', 'Murang\'a',
-    'Nairobi', 'Nakuru', 'Nandi', 'Narok', 'Nyamira', 'Nyandarua', 'Nyeri',
-    'Samburu', 'Siaya', 'Taita-Taveta', 'Tana River', 'Tharaka-Nithi', 'Trans Nzoia',
-    'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot'
-  ];
-
-  // Calculate age from date of birth
-  const calculateAge = (dateOfBirth) => {
-    if (!dateOfBirth) return '';
-    
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
-  };
-
-  // Handle date of birth change and auto-calculate age
-  const handleDateOfBirthChange = (dateOfBirth) => {
-    handleNestedChange('nominee', 'dateOfBirth', dateOfBirth);
-    const calculatedAge = calculateAge(dateOfBirth);
-    handleNestedChange('nominee', 'age', calculatedAge);
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white p-6 rounded-lg shadow-sm">
       <div className="text-center mb-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-2">👤 Nominee Details</h3>
-        <p className="text-gray-600">Please provide complete and accurate information about the nominee</p>
+        <h3 className="text-2xl font-bold text-gray-800">👤 Nominee Information</h3>
+        <p className="text-gray-600 mt-2">Please provide details about the person being nominated</p>
+        {isMinor && (
+          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              📝 <strong>Minor Detected:</strong> Email, phone, and school details are optional for nominees under 18
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Personal Information */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">📋 Personal Information</h4>
+        <h4 className="text-lg font-semibold text-gray-700">🆔 Personal Information</h4>
         
-        {/* Name Fields */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-bold mb-2">First Name *</label>
@@ -87,6 +76,7 @@ const NomineeDetailsStep = ({
               placeholder="Enter first name"
               required
             />
+            {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
           </div>
           
           <div>
@@ -110,22 +100,23 @@ const NomineeDetailsStep = ({
               placeholder="Enter last name"
               required
             />
+            {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
           </div>
         </div>
 
-        {/* Date of Birth and Age */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-bold mb-2">Date of Birth *</label>
             <input
               type="date"
-              value={formData.nominee.dateOfBirth || ''}
+              value={formData.nominee.dateOfBirth}
               onChange={(e) => handleDateOfBirthChange(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
               max="2012-12-01"
               min="2002-01-01"
               required
             />
+            {errors.dateOfBirth && <p className="text-red-500 text-sm mt-1">{errors.dateOfBirth}</p>}
           </div>
           
           <div>
@@ -155,76 +146,89 @@ const NomineeDetailsStep = ({
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
+            {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
           </div>
         </div>
       </div>
 
-      {/* Contact Information */}
+      {/* Contact Information - UPDATED: Optional for minors */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">📞 Contact Information</h4>
+        <h4 className="text-lg font-semibold text-gray-700">
+          📞 Contact Information
+          {isMinor && <span className="text-sm font-normal text-blue-600 ml-2">(Optional for minors)</span>}
+        </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold mb-2">Email Address *</label>
+            <label className="block text-sm font-bold mb-2">
+              Email Address {!isMinor && '*'}
+              {isMinor && <span className="text-sm font-normal text-gray-500 ml-1">(Optional)</span>}
+            </label>
             <input
               type="email"
-              value={formData.nominee.email}
+              value={formData.nominee.email || ''}
               onChange={(e) => handleNestedChange('nominee', 'email', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="Enter email address"
-              required
+              placeholder={isMinor ? "Enter email (optional)" : "Enter email address"}
+              required={!isMinor}
             />
+            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
           </div>
           
           <div>
-            <label className="block text-sm font-bold mb-2">Phone Number *</label>
+            <label className="block text-sm font-bold mb-2">
+              Phone Number {!isMinor && '*'}
+              {isMinor && <span className="text-sm font-normal text-gray-500 ml-1">(Optional)</span>}
+            </label>
             <input
               type="tel"
-              value={formData.nominee.phone}
+              value={formData.nominee.phone || ''}
               onChange={(e) => handleNestedChange('nominee', 'phone', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="+254XXXXXXXXX"
-              required
+              placeholder={isMinor ? "+254XXXXXXXXX (optional)" : "+254XXXXXXXXX"}
+              required={!isMinor}
             />
+            {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-bold mb-2">Nationality *</label>
-          <select
-            value={formData.nominee.nationality || ''}
-            onChange={(e) => handleNestedChange('nominee', 'nationality', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-            required
-          >
-            <option value="">Select Nationality</option>
-            {nationalityOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
         </div>
       </div>
 
-      {/* Location Information */}
+      {/* Nationality and Location */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">📍 Location Information</h4>
+        <h4 className="text-lg font-semibold text-gray-700">🌍 Nationality & Location</h4>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-bold mb-2">County *</label>
+            <label className="block text-sm font-bold mb-2">Nationality *</label>
             <select
-              value={formData.nominee.county || ''}
-              onChange={(e) => handleNestedChange('nominee', 'county', e.target.value)}
+              value={formData.nominee.nationality || ''}
+              onChange={(e) => handleNestedChange('nominee', 'nationality', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
               required
             >
-              <option value="">Select County</option>
-              {counties.map(county => (
-                <option key={county} value={county}>{county}</option>
+              <option value="">Select Nationality</option>
+              {nationalityOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
+            {errors.nationality && <p className="text-red-500 text-sm mt-1">{errors.nationality}</p>}
           </div>
-          
+
+          <div>
+            <label className="block text-sm font-bold mb-2">County *</label>
+            <input
+              type="text"
+              value={formData.nominee.county || ''}
+              onChange={(e) => handleNestedChange('nominee', 'county', e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="Enter county"
+              required
+            />
+            {errors.county && <p className="text-red-500 text-sm mt-1">{errors.county}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-bold mb-2">Sub-County</label>
             <input
@@ -235,7 +239,7 @@ const NomineeDetailsStep = ({
               placeholder="Enter sub-county (optional)"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-bold mb-2">Ward</label>
             <input
@@ -249,30 +253,33 @@ const NomineeDetailsStep = ({
         </div>
       </div>
 
-      {/* School Information */}
+      {/* Education Information - UPDATED: Optional for all */}
       <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">🏫 School/Institution Information</h4>
+        <h4 className="text-lg font-semibold text-gray-700">
+          🎓 Education Information 
+          <span className="text-sm font-normal text-gray-500 ml-2">(Optional - some nominees may not be in school)</span>
+        </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-bold mb-2">School/Institution Name</label>
+            <label className="block text-sm font-bold mb-2">School Name</label>
             <input
               type="text"
               value={formData.nominee.school?.name || ''}
-              onChange={(e) => handleDeepNestedChange('nominee', 'school', 'name', e.target.value)}
+              onChange={(e) => handleNestedChange('nominee', 'school', { ...formData.nominee.school, name: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="Enter school name"
+              placeholder="Enter school name (optional)"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-bold mb-2">Education Level</label>
+            <label className="block text-sm font-bold mb-2">School Level</label>
             <select
               value={formData.nominee.school?.level || ''}
-              onChange={(e) => handleDeepNestedChange('nominee', 'school', 'level', e.target.value)}
+              onChange={(e) => handleNestedChange('nominee', 'school', { ...formData.nominee.school, level: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
             >
-              <option value="">Select Level</option>
+              <option value="">Select level (optional)</option>
               {schoolLevels.map(level => (
                 <option key={level} value={level}>{level}</option>
               ))}
@@ -280,61 +287,35 @@ const NomineeDetailsStep = ({
           </div>
           
           <div>
-            <label className="block text-sm font-bold mb-2">Current Class/Form/Grade/Year</label>
+            <label className="block text-sm font-bold mb-2">Grade/Class</label>
             <input
               type="text"
               value={formData.nominee.school?.grade || ''}
-              onChange={(e) => handleDeepNestedChange('nominee', 'school', 'grade', e.target.value)}
+              onChange={(e) => handleNestedChange('nominee', 'school', { ...formData.nominee.school, grade: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-              placeholder="e.g., Form 4, Year 2, Grade 12"
+              placeholder="e.g., Form 4, Year 2 (optional)"
             />
           </div>
         </div>
-      </div>
-
-      {/* Photo Upload */}
-      <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-700">📸 Nominee Photo *</h4>
-        <div>
-          <label className="block text-sm font-bold mb-2">Upload Recent Photo</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                handleNestedChange('nominee', 'photoFile', file);
-                // Create preview URL
-                const photoURL = URL.createObjectURL(file);
-                handleNestedChange('nominee', 'photo', photoURL);
-              }
-            }}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
-            required
-          />
-          {formData.nominee.photo && (
-            <div className="mt-2">
-              <img 
-                src={formData.nominee.photo} 
-                alt="Nominee photo preview" 
-                className="w-32 h-32 object-cover rounded-lg border"
-              />
-            </div>
-          )}
+        
+        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <span className="font-semibold">Note:</span> School information is optional. Some outstanding teens may be self-educated, homeschooled, or taking a gap year.
+          </p>
         </div>
       </div>
 
-      {/* Help Text */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h5 className="font-semibold text-blue-800 mb-2">📋 Important Notes:</h5>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• Ensure all information is accurate as it will be used for verification</li>
-          <li>• For nominees under 18, parent/guardian consent is required</li>
-          <li>• School information helps with verification processes</li>
-          <li>• Age must be between 13-19 years as of December 1, 2025</li>
-          <li>• Photo should be recent and clear (passport-style preferred)</li>
-        </ul>
-      </div>
+      {/* Display validation errors */}
+      {Object.keys(errors).length > 0 && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+          <h5 className="font-semibold text-red-800 mb-2">Please fix the following:</h5>
+          <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
+            {Object.entries(errors).map(([field, message]) => (
+              <li key={field}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
