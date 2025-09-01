@@ -1,16 +1,23 @@
-// File: frontend/src/pages/ArticlePage.jsx - SAME DESIGN AS HOME PAGE
+// File: frontend/src/pages/ArticlePage.jsx
 import React, { useState, useEffect } from 'react';
+import apiService from '../services/api';
 
 const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
   const [relatedArticles, setRelatedArticles] = useState([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [fullArticle, setFullArticle] = useState(article);
 
   // Fix image URL - same as other pages
   const getImageUrl = (article) => {
     if (!article?.image) return '/api/placeholder/1200/600';
     
-    // If it's already a full Cloudinary URL, use it
+    // If it's already a full URL (Unsplash/Cloudinary), use it
+    if (article.image.startsWith('http')) {
+      return article.image;
+    }
+    
+    // If it's a Cloudinary path
     if (article.image.startsWith('https://res.cloudinary.com')) {
       return article.image;
     }
@@ -23,50 +30,51 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
     return article.image;
   };
 
-  // Generate some sample related articles when article loads
+  // Fetch full article data and related articles when component mounts
   useEffect(() => {
-    if (article) {
-      // Sample related articles matching your database structure
-      const sampleRelated = [
-        {
-          _id: 'related-1',
-          title: 'UNDERSTANDING YOUR EMOTIONS',
-          category: 'SELF-CARE',
-          author: 'Mental Health Team',
-          excerpt: 'Learning to recognize and manage your emotions is a crucial life skill for every teenager.',
-          image: '/api/placeholder/400/300',
-          readTime: 4,
-          views: 1200,
-        },
-        {
-          _id: 'related-2',
-          title: 'BUILDING CONFIDENCE IN RELATIONSHIPS',
-          category: 'RELATIONSHIPS',
-          author: 'Social Team',
-          excerpt: 'How to maintain healthy boundaries and communicate effectively with friends and family.',
-          image: '/api/placeholder/400/300',
-          readTime: 6,
-          views: 980,
-        },
-        {
-          _id: 'related-3',
-          title: 'TEEN LEADERSHIP IN ACTION',
-          category: 'LEADERSHIP',
-          author: 'Leadership Team',
-          excerpt: 'Real stories of young Kenyans making a difference in their communities.',
-          image: '/api/placeholder/400/300',
-          readTime: 5,
-          views: 1500,
-        }
-      ].filter(related => related.category !== article.category); // Filter out same category
+    const fetchArticleData = async () => {
+      if (!article) return;
 
-      setRelatedArticles(sampleRelated.slice(0, 3));
-    }
+      try {
+        // Try to fetch the full article from backend
+        console.log('🔄 Fetching full article data for:', article._id);
+        const response = await apiService.getArticle(article._id);
+        
+        if (response.status === 'success' && response.data.article) {
+          console.log('✅ Full article fetched from backend');
+          setFullArticle(response.data.article);
+        } else {
+          console.log('⚠️ Using passed article data');
+          setFullArticle(article);
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to fetch full article, using passed data:', error.message);
+        setFullArticle(article);
+      }
+
+      // Generate related articles (sample data for now)
+      generateRelatedArticles(article.category);
+    };
+
+    fetchArticleData();
   }, [article]);
+
+  const generateRelatedArticles = (currentCategory) => {
+    // Get sample articles excluding current category
+    const sampleRelated = apiService.getSampleArticles(null, 10);
+    const filtered = sampleRelated.data.articles
+      .filter(related => 
+        related.category !== currentCategory && 
+        related._id !== article._id
+      )
+      .slice(0, 3);
+
+    setRelatedArticles(filtered);
+  };
 
   const handleShare = (platform) => {
     const url = window.location.href;
-    const text = `Check out this story: ${article.title}`;
+    const text = `Check out this story: ${fullArticle.title}`;
     
     const shareUrls = {
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
@@ -93,31 +101,39 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
     window.scrollTo(0, 0);
   };
 
-  // Clean article content (remove HTML tags for display)
-  const cleanContent = (content) => {
+  // Clean and format article content
+  const formatContent = (content) => {
     if (!content) return '';
-    // Remove HTML tags and decode entities
-    return content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    
+    // If content has HTML, return as HTML
+    if (content.includes('<')) {
+      return content;
+    }
+    
+    // If plain text, format it nicely
+    return content.split('\n').map((paragraph, index) => 
+      paragraph.trim() ? `<p key="${index}">${paragraph.trim()}</p>` : ''
+    ).join('');
   };
 
   // Article not found state
-  if (!article) {
+  if (!fullArticle) {
     return (
       <div className="pt-20 bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-2xl mx-auto px-6">
-          <div className="text-6xl mb-6">📖</div>
+        <div className="text-center max-w-2xl mx-auto px-4 md:px-6">
+          <div className="text-4xl md:text-6xl mb-6">📖</div>
           <h2 
-            className="text-3xl font-black text-gray-900 mb-4"
+            className="text-2xl md:text-3xl font-black text-gray-900 mb-4"
             style={{fontFamily: 'Playfair Display, serif'}}
           >
             STORY NOT FOUND
           </h2>
-          <p className="text-gray-600 mb-6 text-lg">
+          <p className="text-gray-600 mb-6 text-base md:text-lg">
             The article you're looking for doesn't exist or may have been moved.
           </p>
           <button
             onClick={() => setCurrentPage('articles')}
-            className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 font-black tracking-wider transition-all transform hover:scale-105"
+            className="bg-red-600 hover:bg-red-700 text-white px-6 md:px-8 py-3 font-black tracking-wider transition-all transform hover:scale-105"
             style={{fontFamily: 'Space Grotesk, sans-serif'}}
           >
             BROWSE ALL STORIES
@@ -129,12 +145,12 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
 
   return (
     <div className="bg-white text-gray-900">
-      {/* BACK NAVIGATION - SAME DESIGN */}
+      {/* BACK NAVIGATION */}
       <div className="pt-20 bg-gray-50 border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 py-4">
           <button
             onClick={() => setCurrentPage('articles')}
-            className="flex items-center text-gray-600 hover:text-red-600 transition-colors font-semibold"
+            className="flex items-center text-gray-600 hover:text-red-600 transition-colors font-semibold text-sm md:text-base"
             style={{fontFamily: 'Inter, sans-serif'}}
           >
             ← Back to All Stories
@@ -142,236 +158,230 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
         </div>
       </div>
 
-      {/* ARTICLE HERO - SAME DESIGN AS HOME PAGE FEATURED */}
-      <section className="py-16 bg-gray-900 relative overflow-hidden">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="relative h-64 md:h-96 mb-8 overflow-hidden rounded-lg">
-            <img 
-              src={getImageUrl(article)} 
-              alt={article.title} 
-              className="w-full h-full object-cover" 
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
-            
-            {/* Article Header Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-8">
+      {/* ARTICLE HERO */}
+      <section className="py-8 md:py-16 bg-gray-900 relative overflow-hidden">
+        <div className="max-w-4xl mx-auto px-4 md:px-6">
+          {getImageUrl(fullArticle) ? (
+            /* With Image */
+            <div className="relative h-48 md:h-64 lg:h-96 mb-6 md:mb-8 overflow-hidden rounded-lg">
+              <img 
+                src={getImageUrl(fullArticle)} 
+                alt={fullArticle.title} 
+                className="w-full h-full object-cover" 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+              
+              {/* Article Header Overlay */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 lg:p-8">
+                {/* Category Badge */}
+                <div className="mb-3 md:mb-4">
+                  <span 
+                    className="bg-red-600 text-white px-3 md:px-4 py-1 md:py-2 font-black text-xs md:text-sm tracking-wider uppercase"
+                    style={{fontFamily: 'Space Grotesk, sans-serif'}}
+                  >
+                    {fullArticle.category}
+                  </span>
+                </div>
+                
+                {/* Title */}
+                <h1 
+                  className="text-xl md:text-3xl lg:text-5xl font-black text-white mb-3 md:mb-4 leading-tight"
+                  style={{fontFamily: 'Playfair Display, serif'}}
+                >
+                  {fullArticle.title}
+                </h1>
+                
+                {/* Meta Info */}
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-white/80">
+                  <span className="font-semibold">{fullArticle.author}</span>
+                  <span>•</span>
+                  <span>{new Date(fullArticle.createdAt).toLocaleDateString()}</span>
+                  <span>•</span>
+                  <span>{fullArticle.readTime} min read</span>
+                  <span>•</span>
+                  <span>{fullArticle.views} views</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Text-only design when no image */
+            <div className="text-center py-12 md:py-16">
               {/* Category Badge */}
-              <div className="mb-4">
+              <div className="mb-6">
                 <span 
                   className="bg-red-600 text-white px-4 py-2 font-black text-sm tracking-wider uppercase"
                   style={{fontFamily: 'Space Grotesk, sans-serif'}}
                 >
-                  {article.category}
+                  {fullArticle.category}
                 </span>
               </div>
               
               {/* Title */}
               <h1 
-                className="text-3xl md:text-5xl font-black text-white mb-4 leading-tight"
+                className="text-3xl md:text-5xl lg:text-7xl font-black text-white mb-6 md:mb-8 leading-tight max-w-4xl mx-auto"
                 style={{fontFamily: 'Playfair Display, serif'}}
               >
-                {article.title}
+                {fullArticle.title}
               </h1>
               
               {/* Meta Info */}
-              <div className="flex items-center space-x-4 text-white/80">
-                <span className="font-semibold">{article.author}</span>
+              <div className="flex flex-wrap justify-center items-center gap-2 md:gap-4 text-sm text-white/80">
+                <span className="font-semibold">{fullArticle.author}</span>
                 <span>•</span>
-                <span>{new Date(article.createdAt).toLocaleDateString()}</span>
+                <span>{new Date(fullArticle.createdAt).toLocaleDateString()}</span>
                 <span>•</span>
-                <span>{article.readTime} min read</span>
+                <span>{fullArticle.readTime} min read</span>
                 <span>•</span>
-                <span>{article.views} views</span>
+                <span>{fullArticle.views} views</span>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* ARTICLE CONTENT - SAME DESIGN AS HOME PAGE */}
-      <article className="py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-6">
+      {/* ARTICLE CONTENT */}
+      <article className="py-8 md:py-16 bg-white">
+        <div className="max-w-4xl mx-auto px-4 md:px-6">
           
           {/* Article Excerpt */}
-          <div className="mb-12">
+          <div className="mb-8 md:mb-12">
             <p 
-              className="text-xl text-gray-700 leading-relaxed font-medium"
+              className="text-lg md:text-xl text-gray-700 leading-relaxed font-medium"
               style={{fontFamily: 'Inter, sans-serif'}}
             >
-              {article.excerpt}
+              {fullArticle.excerpt}
             </p>
           </div>
 
           {/* Article Actions */}
-          <div className="flex items-center justify-between mb-12 pb-6 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 md:mb-12 pb-4 md:pb-6 border-b border-gray-200 gap-4">
+            <div className="flex items-center gap-4">
               <button
                 onClick={() => setIsBookmarked(!isBookmarked)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+                className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-semibold transition-all text-sm ${
                   isBookmarked 
                     ? 'bg-red-600 text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-red-50'
                 }`}
               >
                 <span>{isBookmarked ? '❤️' : '🤍'}</span>
-                <span>Bookmark</span>
+                <span>{isBookmarked ? 'Saved' : 'Save'}</span>
               </button>
-
+              
               <div className="relative">
                 <button
                   onClick={() => setShowShareMenu(!showShareMenu)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-all"
+                  className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 md:px-4 py-2 rounded-lg font-semibold transition-all text-sm"
                 >
                   <span>📤</span>
                   <span>Share</span>
                 </button>
-
+                
                 {/* Share Menu */}
                 {showShareMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                    <button
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                    <button 
                       onClick={() => handleShare('twitter')}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
                     >
-                      <span>🐦</span>
-                      <span>Twitter</span>
+                      🐦 Twitter
                     </button>
-                    <button
+                    <button 
                       onClick={() => handleShare('facebook')}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
                     >
-                      <span>📘</span>
-                      <span>Facebook</span>
+                      📘 Facebook
                     </button>
-                    <button
+                    <button 
                       onClick={() => handleShare('whatsapp')}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
                     >
-                      <span>💬</span>
-                      <span>WhatsApp</span>
+                      💬 WhatsApp
                     </button>
-                    <button
+                    <button 
                       onClick={() => handleShare('copy')}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm border-t border-gray-100"
                     >
-                      <span>📋</span>
-                      <span>Copy Link</span>
+                      📋 Copy Link
                     </button>
                   </div>
                 )}
               </div>
             </div>
+            
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span>👁️ {fullArticle.views} views</span>
+              <span>⏱️ {fullArticle.readTime} min read</span>
+            </div>
+          </div>
 
-            {/* Tags */}
-            {article.tags && article.tags.length > 0 && (
+          {/* Article Body */}
+          <div 
+            className="prose prose-lg max-w-none"
+            style={{fontFamily: 'Inter, sans-serif'}}
+          >
+            {fullArticle.content ? (
+              <div 
+                dangerouslySetInnerHTML={{ 
+                  __html: formatContent(fullArticle.content) 
+                }} 
+              />
+            ) : (
+              <div className="text-gray-600 leading-relaxed space-y-6">
+                <p>
+                  This is the full article content for "{fullArticle.title}". 
+                  The content would typically be stored in the database and fetched from your backend.
+                </p>
+                <p>
+                  {fullArticle.excerpt}
+                </p>
+                <p>
+                  For demonstration purposes, this shows how the article page would look with proper content.
+                  The article management system in your admin panel allows you to create and edit full articles.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Tags */}
+          {fullArticle.tags && fullArticle.tags.length > 0 && (
+            <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-gray-200">
+              <h3 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider">Tags</h3>
               <div className="flex flex-wrap gap-2">
-                {article.tags.slice(0, 4).map((tag, index) => (
-                  <span
+                {fullArticle.tags.map((tag, index) => (
+                  <span 
                     key={index}
-                    className="bg-red-50 text-red-600 px-3 py-1 text-sm rounded-full font-medium"
+                    className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors cursor-pointer"
                   >
                     #{tag}
                   </span>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Article Content */}
-          <div className="prose prose-lg max-w-none mb-16">
-            <div 
-              className="text-gray-800 leading-relaxed"
-              style={{fontFamily: 'Inter, sans-serif'}}
-            >
-              {article.content ? (
-                <div dangerouslySetInnerHTML={{ __html: article.content }} />
-              ) : (
-                <div className="space-y-6">
-                  <p className="text-lg">
-                    {cleanContent(article.excerpt)}
-                  </p>
-                  <p className="text-lg text-gray-600 italic">
-                    This is a sample article. The full content would be managed through the admin panel where you can:
-                  </p>
-                  <ul className="list-disc list-inside space-y-2 text-gray-700">
-                    <li>Add rich text content with formatting</li>
-                    <li>Upload and manage images through Cloudinary</li>
-                    <li>Set categories, tags, and reading time</li>
-                    <li>Control publication status</li>
-                    <li>Track views and engagement</li>
-                  </ul>
-                  <p className="text-lg">
-                    Use the admin panel to create compelling, well-formatted articles that will engage your teen audience 
-                    with meaningful content about constitutional education, leadership, and personal development.
-                  </p>
-                </div>
-              )}
             </div>
-          </div>
-
-          {/* Author Bio */}
-          <div className="bg-gray-50 p-8 rounded-lg mb-16">
-            <h3 
-              className="text-2xl font-black text-gray-900 mb-4"
-              style={{fontFamily: 'Playfair Display, serif'}}
-            >
-              About the Author
-            </h3>
-            <div className="flex items-start space-x-4">
-              <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-2xl font-black">
-                  {article.author.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1">
-                <h4 
-                  className="text-xl font-black text-gray-900 mb-2"
-                  style={{fontFamily: 'Space Grotesk, sans-serif'}}
-                >
-                  {article.author}
-                </h4>
-                <p 
-                  className="text-gray-600 leading-relaxed"
-                  style={{fontFamily: 'Inter, sans-serif'}}
-                >
-                  A passionate contributor to Teendom Africa, dedicated to empowering young people through 
-                  engaging content and meaningful stories. With experience in youth development and education, 
-                  they create content that resonates with teens and helps them navigate life's challenges.
-                </p>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </article>
 
-      {/* RELATED ARTICLES - SAME DESIGN AS HOME PAGE */}
+      {/* RELATED ARTICLES */}
       {relatedArticles.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-12">
-              <h2 
-                className="text-4xl md:text-5xl font-black mb-4 text-gray-900"
-                style={{fontFamily: 'Playfair Display, serif'}}
-              >
-                MORE <span className="text-red-600">STORIES</span>
-              </h2>
-              <p 
-                className="text-xl text-gray-600 font-semibold"
-                style={{fontFamily: 'Space Grotesk, sans-serif'}}
-              >
-                DISCOVER SIMILAR CONTENT YOU MIGHT ENJOY
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
+        <section className="py-12 md:py-20 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
+            <h2 
+              className="text-2xl md:text-3xl font-black text-gray-900 mb-8 md:mb-12 text-center"
+              style={{fontFamily: 'Playfair Display, serif'}}
+            >
+              RELATED STORIES
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
               {relatedArticles.map((relatedArticle) => (
                 <article 
-                  key={relatedArticle._id} 
+                  key={relatedArticle._id}
                   className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden rounded-lg"
                   onClick={() => openRelatedArticle(relatedArticle)}
                 >
-                  {/* Image Container - SAME DESIGN */}
-                  <div className="relative h-48 overflow-hidden">
+                  {/* Image */}
+                  <div className="relative h-40 md:h-48 overflow-hidden">
                     <img 
                       src={getImageUrl(relatedArticle)} 
                       alt={relatedArticle.title} 
@@ -381,30 +391,30 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
                     
                     {/* Category Badge */}
                     <div className="absolute top-3 left-3">
-                      <span className="bg-red-600 text-white px-3 py-1 font-black text-xs tracking-wider">
+                      <span className="bg-red-600 text-white px-2 py-1 font-black text-xs tracking-wider">
                         {relatedArticle.category}
                       </span>
                     </div>
                   </div>
                   
                   {/* Content */}
-                  <div className="p-6">
+                  <div className="p-4 md:p-6">
                     <h3 
-                      className="text-xl font-black text-gray-900 mb-3 leading-tight group-hover:text-red-600 transition-colors"
+                      className="text-base md:text-lg font-black text-gray-900 mb-2 leading-tight group-hover:text-red-600 transition-colors"
                       style={{fontFamily: 'Playfair Display, serif'}}
                     >
                       {relatedArticle.title}
                     </h3>
                     
                     <p 
-                      className="text-gray-600 mb-4 leading-relaxed"
+                      className="text-sm text-gray-600 mb-3 leading-relaxed"
                       style={{fontFamily: 'Inter, sans-serif'}}
                     >
                       {relatedArticle.excerpt.substring(0, 100)}...
                     </p>
                     
                     {/* Meta */}
-                    <div className="flex items-center justify-between text-sm text-gray-500">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
                       <span className="font-semibold">{relatedArticle.author}</span>
                       <span>{relatedArticle.readTime} min read</span>
                     </div>
@@ -412,11 +422,12 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
                 </article>
               ))}
             </div>
-
-            <div className="text-center mt-12">
-              <button 
+            
+            {/* View More Button */}
+            <div className="text-center mt-8 md:mt-12">
+              <button
                 onClick={() => setCurrentPage('articles')}
-                className="bg-red-600 hover:bg-red-700 text-white px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
+                className="bg-red-600 hover:bg-red-700 text-white px-6 md:px-8 py-3 font-black text-sm md:text-base tracking-wider uppercase transition-all transform hover:scale-105"
                 style={{fontFamily: 'Space Grotesk, sans-serif'}}
               >
                 VIEW ALL STORIES
@@ -426,90 +437,43 @@ const ArticlePage = ({ article, setCurrentPage, setCurrentArticle }) => {
         </section>
       )}
 
-      {/* CALL TO ACTION - SAME DESIGN AS HOME PAGE */}
-      <section className="py-20 bg-red-600">
-        <div className="max-w-4xl mx-auto text-center px-6">
-          <h2 
-            className="text-5xl font-black mb-8 text-white"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            ENJOYED THIS <span className="text-yellow-300">STORY?</span>
-          </h2>
-          
-          <p 
-            className="text-xl text-red-100 mb-10 font-semibold"
-            style={{fontFamily: 'Space Grotesk, sans-serif'}}
-          >
-            DISCOVER MORE INSPIRING CONTENT AND JOIN OUR COMMUNITY
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <button 
-              onClick={() => setCurrentPage('articles')}
-              className="bg-white text-red-600 px-12 py-4 font-black text-lg tracking-wider hover:bg-gray-100 transition-all transform hover:scale-105"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              📚 READ MORE STORIES
-            </button>
-            <button 
-              onClick={() => setCurrentPage('ycp')}
-              className="bg-yellow-400 hover:bg-yellow-500 text-black px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              🎓 JOIN OUR PROGRAM
-            </button>
-            <button 
-              onClick={() => setCurrentPage('awards')}
-              className="border-2 border-white text-white hover:bg-white hover:text-red-600 px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              🏆 NOMINATE SOMEONE
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* NEWSLETTER - SAME DESIGN AS HOME PAGE */}
-      <section className="py-20 bg-gray-900">
-        <div className="max-w-4xl mx-auto text-center px-6">
-          <h2 
-            className="text-5xl font-black mb-6 text-white"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            STAY <span className="text-red-500">UPDATED</span>
-          </h2>
-          
-          <p 
-            className="text-xl text-gray-300 mb-10 font-semibold"
-            style={{fontFamily: 'Space Grotesk, sans-serif'}}
-          >
-            GET THE LATEST STORIES AND OPPORTUNITIES DELIVERED TO YOUR INBOX
-          </p>
-          
-          <div className="bg-white rounded-lg p-6 max-w-md mx-auto shadow-xl">
-            <input 
-              type="email" 
-              placeholder="Enter your email address"
-              className="w-full px-4 py-3 bg-gray-100 text-black font-semibold placeholder-gray-600 mb-4 focus:outline-none focus:bg-white rounded"
-              style={{fontFamily: 'Inter, sans-serif'}}
-            />
-            <button 
-              className="w-full bg-red-600 text-white py-3 font-black tracking-wider hover:bg-red-700 transition-all rounded"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              SUBSCRIBE NOW
-            </button>
-          </div>
-        </div>
-      </section>
-
       {/* Close share menu when clicking outside */}
       {showShareMenu && (
         <div 
-          className="fixed inset-0 z-40" 
+          className="fixed inset-0 z-0" 
           onClick={() => setShowShareMenu(false)}
         />
       )}
+
+      {/* Responsive CSS */}
+      <style jsx>{`
+        .prose p {
+          margin-bottom: 1.5rem;
+        }
+        .prose h2 {
+          margin-top: 2rem;
+          margin-bottom: 1rem;
+          font-size: 1.5rem;
+          font-weight: bold;
+          color: #111;
+        }
+        .prose ul, .prose ol {
+          margin: 1.5rem 0;
+          padding-left: 2rem;
+        }
+        .prose li {
+          margin-bottom: 0.5rem;
+        }
+        
+        @media (max-width: 768px) {
+          .prose {
+            font-size: 16px;
+          }
+          .prose h2 {
+            font-size: 1.25rem;
+          }
+        }
+      `}</style>
     </div>
   );
 };

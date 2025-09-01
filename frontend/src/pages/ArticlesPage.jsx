@@ -1,12 +1,11 @@
-// File: frontend/src/pages/ArticlesPage.jsx - SAME DESIGN AS HOME PAGE
+// File: frontend/src/pages/ArticlesPage.jsx
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/api';
 
 const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
   const [articles, setArticles] = useState([]);
   const [filteredArticles, setFilteredArticles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [backendConnected, setBackendConnected] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   
@@ -22,132 +21,44 @@ const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
     { name: 'EDUCATION', color: 'bg-indigo-600' }
   ];
 
-  // Fetch articles from API
+  // IMMEDIATE RENDERING: Load articles immediately, then replace with real data
   useEffect(() => {
-    const fetchArticles = async () => {
+    // 1. IMMEDIATE: Load sample data for instant rendering
+    const sampleData = apiService.getSampleArticles(null, 20);
+    setArticles(sampleData.data.articles);
+    setFilteredArticles(sampleData.data.articles);
+    
+    // 2. BACKGROUND: Try to fetch real data from backend
+    const fetchRealData = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        console.log('🔄 Attempting to fetch real articles from backend...');
         
-        console.log('📚 Fetching all articles...');
+        // Test backend connection first
+        const isConnected = await apiService.testConnection();
+        setBackendConnected(isConnected);
         
-        try {
-          // Check backend health first
-          await apiService.healthCheck();
-          console.log('✅ Backend connected');
-          
+        if (isConnected) {
           // Fetch all published articles
-          const response = await apiService.getPublishedArticles();
-          console.log('📰 All Articles:', response);
+          const response = await apiService.getPublishedArticles(50);
           
-          const articlesData = response.data?.articles || [];
-          setArticles(articlesData);
-          setFilteredArticles(articlesData);
+          console.log('✅ Real articles fetched:', response.results);
           
-        } catch (apiError) {
-          console.warn('⚠️ API not available, using sample data:', apiError.message);
-          
-          // Extended sample data matching your database structure
-          const sampleArticles = [
-            {
-              _id: '68a2ea98750b88025fffcca6',
-              title: 'HOW TO STAY WISE ABOUT YOUR CENTS',
-              category: 'MONEY',
-              author: 'Linet Makenya',
-              excerpt: "Category: Money THERE 'S A REDLINE BETWEEN SAVINGS AND FOMO! Have you ever found yourself in a situation where you want something so bad but you can't afford it?",
-              image: '/api/placeholder/600/400',
-              readTime: 2,
-              views: 1900,
-              featured: false,
-              published: true,
-              tags: ['money', 'savings', 'financial-literacy', 'teens'],
-              createdAt: '2025-08-18T08:55:52.956+00:00'
-            },
-            {
-              _id: '68a2ea98750b88025fffcca7',
-              title: 'BOOST YOUR SELF-ESTEEM',
-              category: 'SELF-CARE',
-              author: 'Mental Health Team',
-              excerpt: 'Category: Self Care How to develop a healthy self-esteem It is common to have days when you don\'t feel good about yourself.',
-              image: '/api/placeholder/600/400',
-              readTime: 3,
-              views: 1800,
-              featured: false,
-              published: true,
-              tags: ['self-care', 'mental-health', 'self-esteem', 'wellness'],
-              createdAt: '2025-08-18T08:55:52.956+00:00'
-            },
-            {
-              _id: '68a2ea98750b88025fffcca5',
-              title: 'TEEN CEO: Building Your Empire Young',
-              category: 'BUSINESS',
-              author: 'Business Team',
-              excerpt: 'Category: Leadership Heading: TEEN CEO Faith Huini, Founder of Huini Solutions - From school uniform business to tech entrepreneur.',
-              image: 'https://res.cloudinary.com/dbidxxqxr/image/upload/v1756662645/teendom-awards/articles/teen-ceo.jpg',
-              readTime: 2,
-              views: 2800,
-              featured: false,
-              published: true,
-              tags: ['business', 'entrepreneurship', 'teen-ceo', 'leadership'],
-              createdAt: '2025-08-18T08:55:52.955+00:00'
-            },
-            {
-              _id: '68a2ea98750b88025fffcca4',
-              title: 'THE BOYLAN SISTERS: Constitutional Champions',
-              category: 'LEADERSHIP',
-              author: 'Teendom Team',
-              excerpt: "Category; Leadership Heading: The Boylan Sisters 'We are not on social media but we are busy transforming lives'",
-              image: 'https://res.cloudinary.com/dbidxxqxr/image/upload/v1756662761/teendom-awards/articles/boylan-sisters.jpg',
-              readTime: 7,
-              views: 3200,
-              featured: false,
-              published: true,
-              tags: ['leadership', 'constitutional', 'champions', 'sisters'],
-              createdAt: '2025-08-18T08:55:52.955+00:00'
-            },
-            {
-              _id: '68a2ea98750b88025fffcca3',
-              title: 'ACNE IN TEENAGE BOYS',
-              category: 'SELF-CARE',
-              author: 'Catherine Kinyanjui',
-              excerpt: 'Category: Self care Acne and Male Self Esteem There are boys that are struggling with acne and its impact on their confidence.',
-              image: '/api/placeholder/600/400',
-              readTime: 3,
-              views: 2500,
-              featured: false,
-              published: true,
-              tags: ['self-care', 'acne', 'boys', 'confidence'],
-              createdAt: '2025-08-18T08:55:52.953+00:00'
-            },
-            {
-              _id: 'sample-education-1',
-              title: 'YOUR RIGHTS AS A KENYAN TEEN',
-              category: 'EDUCATION',
-              author: 'Constitutional Team',
-              excerpt: 'Understanding your fundamental rights as enshrined in the Kenyan Constitution - every teen should know these basic rights and freedoms.',
-              image: '/api/placeholder/600/400',
-              readTime: 5,
-              views: 1500,
-              featured: false,
-              published: true,
-              tags: ['education', 'constitution', 'rights', 'kenya'],
-              createdAt: '2025-08-15T08:55:52.953+00:00'
-            }
-          ];
-          
-          setArticles(sampleArticles);
-          setFilteredArticles(sampleArticles);
+          // Replace sample data with real data if available
+          if (response.results > 0) {
+            setArticles(response.data.articles);
+            setFilteredArticles(response.data.articles);
+          }
+        } else {
+          console.log('⚠️ Backend not available, using sample data');
         }
-        
-      } catch (err) {
-        console.error('❌ Error fetching articles:', err);
-        setError('Failed to load articles. Please check your connection.');
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.warn('⚠️ Failed to fetch real data:', error.message);
+        // Keep using sample data
       }
     };
-
-    fetchArticles();
+    
+    // Fetch real data in background
+    fetchRealData();
   }, []);
 
   // Filter articles based on search and category
@@ -160,22 +71,29 @@ const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
     }
 
     // Filter by search term
-    if (searchTerm.trim()) {
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(article =>
-        article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        article.author.toLowerCase().includes(searchTerm.toLowerCase())
+        article.title.toLowerCase().includes(searchLower) ||
+        article.excerpt.toLowerCase().includes(searchLower) ||
+        article.author.toLowerCase().includes(searchLower) ||
+        (article.tags && article.tags.some(tag => tag.toLowerCase().includes(searchLower)))
       );
     }
 
     setFilteredArticles(filtered);
-  }, [articles, searchTerm, selectedCategory]);
+  }, [articles, selectedCategory, searchTerm]);
 
-  // Fix image URL - same as HomePage
+  // Fix image URL - handle both Cloudinary and fallback
   const getImageUrl = (article) => {
     if (!article.image) return '/api/placeholder/600/400';
     
-    // If it's already a full Cloudinary URL, use it
+    // If it's already a full URL (Unsplash/Cloudinary), use it
+    if (article.image.startsWith('http')) {
+      return article.image;
+    }
+    
+    // If it's a Cloudinary path
     if (article.image.startsWith('https://res.cloudinary.com')) {
       return article.image;
     }
@@ -194,49 +112,30 @@ const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
     setCurrentPage('article');
   };
 
-  // Loading state - SAME DESIGN AS HOME PAGE
-  if (loading) {
-    return (
-      <div className="pt-20 bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-semibold">Loading all stories...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state - SAME DESIGN AS HOME PAGE
-  if (error) {
-    return (
-      <div className="pt-20 bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-2xl mx-auto px-6">
-          <div className="text-6xl mb-6">⚠️</div>
-          <h2 className="text-3xl font-black text-gray-900 mb-4">Connection Issue</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-red-600 text-white px-6 py-3 font-bold rounded-lg hover:bg-red-700 transition-all"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white text-gray-900">
-      {/* HERO SECTION - SAME DESIGN AS HOME PAGE */}
-      <section className="pt-20 pb-20 bg-gradient-to-br from-red-50 via-white to-red-50 relative overflow-hidden">
-        {/* Background Decorations - SAME AS HOME PAGE */}
-        <div className="absolute top-10 left-10 w-32 h-32 bg-red-500 rounded-full opacity-10 animate-float"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 bg-red-600 rounded-full opacity-15"></div>
-        <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-red-400 rounded-full opacity-10"></div>
+      {/* CONNECTION STATUS (only show if backend disconnected) */}
+      {!backendConnected && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-20">
+          <div className="flex items-center max-w-7xl mx-auto px-4 md:px-6">
+            <div className="text-yellow-800 text-sm">
+              ⚠️ <strong>Demo Mode:</strong> Backend not connected. Showing sample articles. 
+              <span className="ml-2">Start your backend server for real data.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HERO SECTION */}
+      <section className="pt-20 pb-12 md:pb-20 bg-gradient-to-br from-red-50 via-white to-red-50 relative overflow-hidden">
+        {/* Background Decorations */}
+        <div className="absolute top-10 left-4 md:left-10 w-20 md:w-32 h-20 md:h-32 bg-red-500 rounded-full opacity-10 animate-float"></div>
+        <div className="absolute top-20 md:top-40 right-10 md:right-20 w-16 md:w-24 h-16 md:h-24 bg-red-600 rounded-full opacity-15"></div>
+        <div className="absolute bottom-20 left-1/4 w-24 md:w-40 h-24 md:h-40 bg-red-400 rounded-full opacity-10"></div>
         
-        <div className="max-w-7xl mx-auto px-6 text-center relative">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 text-center relative">
           <h1 
-            className="text-6xl md:text-8xl font-black text-gray-900 mb-8 leading-none tracking-tight"
+            className="text-4xl md:text-6xl lg:text-8xl font-black text-gray-900 mb-6 md:mb-8 leading-none tracking-tight"
             style={{fontFamily: 'Playfair Display, serif'}}
           >
             ALL
@@ -246,38 +145,47 @@ const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
           
           <div className="max-w-4xl mx-auto">
             <p 
-              className="text-xl md:text-2xl font-medium text-gray-700 leading-relaxed mb-12"
+              className="text-lg md:text-xl lg:text-2xl font-medium text-gray-700 leading-relaxed mb-8 md:mb-12 px-4"
               style={{fontFamily: 'Inter, sans-serif'}}
             >
               Explore our complete collection of inspiring stories, practical guides, 
               and empowering content crafted specifically for young minds across Kenya.
             </p>
           </div>
-
-          {/* Search Bar */}
-          <div className="max-w-2xl mx-auto mb-8">
-            <input
-              type="text"
-              placeholder="Search stories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-6 py-4 text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              style={{fontFamily: 'Inter, sans-serif'}}
-            />
-          </div>
         </div>
       </section>
 
-      {/* CATEGORIES SECTION - SAME DESIGN AS HOME PAGE */}
-      <section className="py-12 bg-gray-100">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex flex-wrap gap-4 justify-center">
+      {/* FILTERS SECTION */}
+      <section className="py-6 md:py-12 bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          
+          {/* Search Bar */}
+          <div className="mb-6 md:mb-8">
+            <div className="max-w-2xl mx-auto relative">
+              <input
+                type="text"
+                placeholder="Search articles by title, author, or keywords..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 md:px-6 py-3 md:py-4 text-base md:text-lg border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none transition-colors"
+                style={{fontFamily: 'Inter, sans-serif'}}
+              />
+              <div className="absolute right-3 md:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg md:text-xl">
+                🔍
+              </div>
+            </div>
+          </div>
+
+          {/* Category Filters */}
+          <div className="flex flex-wrap justify-center gap-2 md:gap-4">
             {categories.map((category) => (
               <button
                 key={category.name}
                 onClick={() => setSelectedCategory(category.name)}
-                className={`${category.color} text-white px-6 py-3 font-black tracking-wider hover:scale-105 transition-transform ${
-                  selectedCategory === category.name ? 'ring-4 ring-white ring-opacity-50' : ''
+                className={`px-3 md:px-4 py-2 font-black text-xs md:text-sm tracking-wider uppercase transition-all transform hover:scale-105 ${
+                  selectedCategory === category.name
+                    ? `${category.color} text-white`
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
                 style={{fontFamily: 'Space Grotesk, sans-serif'}}
               >
@@ -288,37 +196,33 @@ const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
         </div>
       </section>
 
-      {/* ARTICLES GRID - SAME DESIGN AS HOME PAGE */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Results Info */}
-          <div className="text-center mb-12">
-            <h2 
-              className="text-4xl md:text-5xl font-black mb-4 text-gray-900"
-              style={{fontFamily: 'Playfair Display, serif'}}
-            >
-              LATEST <span className="text-red-600">STORIES</span>
-            </h2>
+      {/* ARTICLES GRID SECTION */}
+      <section className="py-8 md:py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          
+          {/* Results Count */}
+          <div className="mb-6 md:mb-12">
             <p 
-              className="text-xl text-gray-600 font-semibold mb-4"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+              className="text-center text-gray-600 text-base md:text-lg font-medium"
+              style={{fontFamily: 'Inter, sans-serif'}}
             >
-              {filteredArticles.length} {filteredArticles.length === 1 ? 'STORY' : 'STORIES'} 
+              Showing {filteredArticles.length} {filteredArticles.length === 1 ? 'STORY' : 'STORIES'} 
               {selectedCategory !== 'ALL' && ` IN ${selectedCategory}`}
               {searchTerm && ` MATCHING "${searchTerm.toUpperCase()}"`}
             </p>
           </div>
           
+          {/* Articles Grid */}
           {filteredArticles.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
               {filteredArticles.map((article) => (
                 <article 
                   key={article._id || article.id} 
                   className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group overflow-hidden rounded-lg"
                   onClick={() => openArticle(article)}
                 >
-                  {/* Image Container - SAME DESIGN AS HOME PAGE */}
-                  <div className="relative h-48 overflow-hidden">
+                  {/* Image Container */}
+                  <div className="relative h-48 md:h-56 overflow-hidden">
                     <img 
                       src={getImageUrl(article)} 
                       alt={article.title} 
@@ -326,169 +230,174 @@ const ArticlesPage = ({ setCurrentPage, setCurrentArticle }) => {
                     />
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all"></div>
                     
-                    {/* Category Badge - SAME DESIGN AS HOME PAGE */}
+                    {/* Category Badge */}
                     <div className="absolute top-3 left-3">
-                      <span className="bg-red-600 text-white px-3 py-1 font-black text-xs tracking-wider">
+                      <span className="bg-red-600 text-white px-2 md:px-3 py-1 font-black text-xs tracking-wider">
                         {article.category}
                       </span>
                     </div>
 
                     {/* Views Badge */}
                     <div className="absolute top-3 right-3">
-                      <span className="bg-black/50 text-white px-3 py-1 font-bold text-xs rounded">
+                      <span className="bg-black/50 text-white px-2 md:px-3 py-1 font-bold text-xs rounded">
                         {article.views} views
                       </span>
                     </div>
                   </div>
                   
-                  {/* Content - SAME DESIGN AS HOME PAGE */}
-                  <div className="p-6">
+                  {/* Content */}
+                  <div className="p-4 md:p-6">
                     <h3 
-                      className="text-xl font-black text-gray-900 mb-3 leading-tight group-hover:text-red-600 transition-colors"
+                      className="text-lg md:text-xl font-black text-gray-900 mb-3 leading-tight group-hover:text-red-600 transition-colors"
                       style={{fontFamily: 'Playfair Display, serif'}}
                     >
                       {article.title}
                     </h3>
                     
                     <p 
-                      className="text-gray-600 mb-4 leading-relaxed"
+                      className="text-sm md:text-base text-gray-600 mb-4 leading-relaxed"
                       style={{fontFamily: 'Inter, sans-serif'}}
                     >
                       {article.excerpt.substring(0, 120)}...
                     </p>
                     
-                    {/* Meta - SAME DESIGN AS HOME PAGE */}
-                    <div className="flex items-center justify-between text-sm text-gray-500">
+                    {/* Meta Info */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs md:text-sm text-gray-500">
                       <span className="font-semibold">{article.author}</span>
-                      <span>{article.readTime} min read</span>
-                    </div>
-
-                    {/* Tags */}
-                    {article.tags && article.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {article.tags.slice(0, 3).map((tag, index) => (
-                          <span
-                            key={index}
-                            className="bg-gray-100 text-gray-600 px-2 py-1 text-xs rounded font-medium"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        <span>{article.readTime} min read</span>
+                        <span>•</span>
+                        <span>{new Date(article.createdAt).toLocaleDateString()}</span>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="text-center py-16">
-              <div className="text-6xl mb-6">📚</div>
+            /* No Results State */
+            <div className="text-center py-12 md:py-20">
+              <div className="text-4xl md:text-6xl mb-6">🔍</div>
               <h3 
-                className="text-3xl font-black text-gray-900 mb-4"
+                className="text-2xl md:text-3xl font-black text-gray-900 mb-4"
                 style={{fontFamily: 'Playfair Display, serif'}}
               >
                 NO STORIES FOUND
               </h3>
-              <p className="text-gray-600 mb-6 text-lg">
+              <p 
+                className="text-gray-600 mb-6 md:mb-8 text-base md:text-lg max-w-2xl mx-auto px-4"
+                style={{fontFamily: 'Inter, sans-serif'}}
+              >
                 {searchTerm || selectedCategory !== 'ALL' 
-                  ? "Try adjusting your search or category filters to find more stories."
-                  : "No stories are available right now. Add some from the admin panel!"
+                  ? 'Try adjusting your search criteria or browse different categories.' 
+                  : 'No stories are available at the moment. Please check back later.'
                 }
               </p>
               
-              {(searchTerm || selectedCategory !== 'ALL') && (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                {(searchTerm || selectedCategory !== 'ALL') && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedCategory('ALL');
+                    }}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 font-black text-sm md:text-base tracking-wider uppercase transition-all"
+                    style={{fontFamily: 'Space Grotesk, sans-serif'}}
+                  >
+                    CLEAR FILTERS
+                  </button>
+                )}
+                
                 <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedCategory('ALL');
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 font-black tracking-wider transition-all transform hover:scale-105"
+                  onClick={() => setCurrentPage('home')}
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 font-black text-sm md:text-base tracking-wider uppercase transition-all transform hover:scale-105"
                   style={{fontFamily: 'Space Grotesk, sans-serif'}}
                 >
-                  CLEAR FILTERS
+                  BACK TO HOME
                 </button>
-              )}
+              </div>
             </div>
           )}
         </div>
       </section>
 
-      {/* CALL TO ACTION - SAME DESIGN AS HOME PAGE */}
-      <section className="py-20 bg-red-600">
-        <div className="max-w-4xl mx-auto text-center px-6">
-          <h2 
-            className="text-5xl font-black mb-6 text-white"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            WANT MORE <span className="text-yellow-300">CONTENT?</span>
-          </h2>
-          
-          <p 
-            className="text-xl text-red-100 mb-10 font-semibold"
-            style={{fontFamily: 'Space Grotesk, sans-serif'}}
-          >
-            EXPLORE OUR PROGRAMS AND JOIN THE TEENDOM COMMUNITY
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <button 
-              onClick={() => setCurrentPage('home')}
-              className="bg-white text-red-600 px-12 py-4 font-black text-lg tracking-wider hover:bg-gray-100 transition-all transform hover:scale-105"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
+      {/* CALL TO ACTION SECTION */}
+      {filteredArticles.length > 0 && (
+        <section className="py-12 md:py-20 bg-gray-900">
+          <div className="max-w-4xl mx-auto text-center px-4 md:px-6">
+            <h2 
+              className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 md:mb-6"
+              style={{fontFamily: 'Playfair Display, serif'}}
             >
-              🏠 BACK TO HOME
-            </button>
-            <button 
-              onClick={() => setCurrentPage('ycp')}
-              className="bg-yellow-400 hover:bg-yellow-500 text-black px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              📚 EXPLORE YCP
-            </button>
-            <button 
-              onClick={() => setCurrentPage('awards')}
-              className="border-2 border-white text-white hover:bg-white hover:text-red-600 px-12 py-4 font-black text-lg tracking-wider transition-all transform hover:scale-105"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
-            >
-              🏆 AWARDS PROGRAM
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* NEWSLETTER - SAME DESIGN AS HOME PAGE */}
-      <section className="py-20 bg-gray-900">
-        <div className="max-w-4xl mx-auto text-center px-6">
-          <h2 
-            className="text-5xl font-black mb-6 text-white"
-            style={{fontFamily: 'Playfair Display, serif'}}
-          >
-            NEVER MISS A <span className="text-red-500">STORY</span>
-          </h2>
-          
-          <p 
-            className="text-xl text-gray-300 mb-10 font-semibold"
-            style={{fontFamily: 'Space Grotesk, sans-serif'}}
-          >
-            SUBSCRIBE FOR WEEKLY UPDATES WITH THE LATEST TEEN CONTENT
-          </p>
-          
-          <div className="bg-white rounded-lg p-6 max-w-md mx-auto shadow-xl">
-            <input 
-              type="email" 
-              placeholder="Enter your email address"
-              className="w-full px-4 py-3 bg-gray-100 text-black font-semibold placeholder-gray-600 mb-4 focus:outline-none focus:bg-white rounded"
+              INSPIRING THE NEXT
+              <br/>
+              <span className="text-red-500">GENERATION</span>
+            </h2>
+            
+            <p 
+              className="text-base md:text-lg text-gray-300 mb-6 md:mb-8 leading-relaxed max-w-2xl mx-auto"
               style={{fontFamily: 'Inter, sans-serif'}}
-            />
-            <button 
-              className="w-full bg-red-600 text-white py-3 font-black tracking-wider hover:bg-red-700 transition-all rounded"
-              style={{fontFamily: 'Space Grotesk, sans-serif'}}
             >
-              SUBSCRIBE NOW
-            </button>
+              Every story here is crafted to empower, inspire, and guide young Kenyans 
+              toward a brighter future. Join our community of changemakers.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <button
+                onClick={() => setCurrentPage('awards')}
+                className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-6 md:px-8 py-3 md:py-4 font-black text-sm md:text-base tracking-wider uppercase transition-all transform hover:scale-105"
+                style={{fontFamily: 'Space Grotesk, sans-serif'}}
+              >
+                TEENDOM AWARDS
+              </button>
+              
+              <button
+                onClick={() => setCurrentPage('ycp')}
+                className="w-full sm:w-auto border-2 border-white text-white hover:bg-white hover:text-gray-900 px-6 md:px-8 py-3 md:py-4 font-black text-sm md:text-base tracking-wider uppercase transition-all"
+                style={{fontFamily: 'Space Grotesk, sans-serif'}}
+              >
+                YOUTH PROGRAM
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* CSS for animations and responsive design */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        
+        /* Responsive text sizing */
+        @media (max-width: 768px) {
+          .text-8xl { font-size: 3rem; }
+          .text-6xl { font-size: 2.5rem; }
+          .text-5xl { font-size: 2rem; }
+          .text-4xl { font-size: 1.75rem; }
+          .text-3xl { font-size: 1.5rem; }
+        }
+        
+        @media (max-width: 640px) {
+          .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+          
+          /* Better mobile spacing */
+          .px-6 { padding-left: 1rem; padding-right: 1rem; }
+          .py-20 { padding-top: 3rem; padding-bottom: 3rem; }
+        }
+        
+        /* Improve readability on small screens */
+        @media (max-width: 480px) {
+          .text-xs { font-size: 0.75rem; }
+          .text-sm { font-size: 0.875rem; }
+          .gap-2 { gap: 0.5rem; }
+        }
+      `}</style>
     </div>
   );
 };
